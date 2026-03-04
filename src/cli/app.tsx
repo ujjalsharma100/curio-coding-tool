@@ -13,6 +13,7 @@ interface AppProps {
   readonly agent: Agent;
   readonly modelDisplayName: string;
   readonly providerDisplayName: string;
+  readonly contextBudgetLabel?: string;
 }
 
 interface ConversationMessage {
@@ -67,6 +68,7 @@ export function App({
   agent,
   modelDisplayName,
   providerDisplayName,
+  contextBudgetLabel,
 }: AppProps): JSX.Element {
   const theme = getActiveTheme();
   const { exit } = useApp();
@@ -289,6 +291,7 @@ export function App({
           totalPromptTokens={lastPromptTokens}
           totalCompletionTokens={lastCompletionTokens}
           lastDurationMs={lastDurationMs}
+          contextBudgetLabel={contextBudgetLabel}
         />
       )}
       {notifications.length > 0 && (

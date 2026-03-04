@@ -9,7 +9,7 @@ afterEach(() => {
 });
 
 describe("Phase 1 agent builder", () => {
-  it("builds an Agent with resolved provider + model metadata", async () => {
+  it("builds an Agent with resolved provider + context metadata", async () => {
     process.env.ANTHROPIC_API_KEY = "sk-ant-test";
 
     const config: CliRuntimeConfig = {
@@ -34,6 +34,7 @@ describe("Phase 1 agent builder", () => {
     expect(result.providerName).toBe("anthropic");
     expect(result.providerDisplayName).toBe("Anthropic");
     expect(result.modelDisplayName).toBe("claude-sonnet-4-6");
+    expect(result.contextBudgetLabel).toContain("tokens");
   });
 });
 

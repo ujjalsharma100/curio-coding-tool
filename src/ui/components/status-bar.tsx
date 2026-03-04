@@ -10,6 +10,7 @@ export interface StatusBarProps {
   readonly totalPromptTokens?: number;
   readonly totalCompletionTokens?: number;
   readonly lastDurationMs?: number;
+  readonly contextBudgetLabel?: string;
 }
 
 export function StatusBar({
@@ -20,6 +21,7 @@ export function StatusBar({
   totalPromptTokens,
   totalCompletionTokens,
   lastDurationMs,
+  contextBudgetLabel,
 }: StatusBarProps): JSX.Element {
   const sessionLabel = sessionId ? sessionId.slice(0, 8) : "local";
   const tokenLabel =
@@ -51,6 +53,12 @@ export function StatusBar({
         <>
           <Text color={theme.muted}> │ </Text>
           <Text color={theme.muted}>last {durationLabel}</Text>
+        </>
+      )}
+      {contextBudgetLabel && (
+        <>
+          <Text color={theme.muted}> │ </Text>
+          <Text color={theme.warning}>context {contextBudgetLabel}</Text>
         </>
       )}
     </Box>

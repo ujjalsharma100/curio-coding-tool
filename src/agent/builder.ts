@@ -3,6 +3,10 @@ import type { CliRuntimeConfig } from "../cli/args.js";
 import { resolveProvider } from "./provider-config.js";
 import { buildSystemPrompt } from "./system-prompt.js";
 import { phaseTwoTools } from "../tools/index.js";
+import {
+  buildContextBudgetLabel,
+  buildContextWindowRuntime,
+} from "../context/context-window.js";
 
 export interface BuildAgentResult {
   agent: Agent;
@@ -10,6 +14,7 @@ export interface BuildAgentResult {
   providerName: string;
   modelDisplayName: string;
   providerDisplayName: string;
+  contextBudgetLabel: string;
 }
 
 export async function buildAgent(
@@ -28,13 +33,15 @@ export async function buildAgent(
   const toolsForProvider =
     resolved.providerName === "ollama" ? [] : phaseTwoTools;
 
-  const systemPrompt = buildSystemPrompt({ cwd: process.cwd() });
+  const systemPrompt = await buildSystemPrompt({ cwd: process.cwd() });
+  const contextWindow = buildContextWindowRuntime(resolved.model);
 
   const agent = Agent.builder()
     .model(resolved.model)
     .llmClient(resolved.llmClient)
     .systemPrompt(systemPrompt)
     .tools(toolsForProvider)
+    .contextManager(contextWindow.manager)
     .maxIterations(config.maxTurns ?? 100)
     .agentName("curio-code")
     .build();
@@ -45,5 +52,6 @@ export async function buildAgent(
     providerName: resolved.providerName,
     modelDisplayName: resolved.modelDisplayName,
     providerDisplayName: resolved.providerDisplayName,
+    contextBudgetLabel: buildContextBudgetLabel(contextWindow.config),
   };
 }

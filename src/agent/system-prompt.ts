@@ -1,76 +1,50 @@
-import os from "node:os";
-import { execSync } from "node:child_process";
+import {
+  detectEnvironmentContext,
+  detectGitContext,
+  detectProjectContext,
+  formatEnvironmentContextForPrompt,
+  formatGitContextForPrompt,
+  loadCurioInstructions,
+} from "../context/index.js";
 
 export interface SystemPromptOptions {
   cwd: string;
 }
 
-function getGitContext(cwd: string): string {
-  try {
-    const branch = execSync("git branch --show-current", {
-      cwd,
-      stdio: ["ignore", "pipe", "ignore"],
-      encoding: "utf8",
-    }).trim();
-    const statusShort = execSync("git status --short", {
-      cwd,
-      stdio: ["ignore", "pipe", "ignore"],
-      encoding: "utf8",
-    })
-      .trim()
-      .split("\n")
-      .filter(Boolean);
-    const statusSummary = `modified/staged/untracked entries: ${statusShort.length}`;
-    const commits = execSync("git log -5 --pretty=format:%s", {
-      cwd,
-      stdio: ["ignore", "pipe", "ignore"],
-      encoding: "utf8",
-    })
-      .trim()
-      .split("\n")
-      .filter(Boolean);
-    const remote = execSync("git rev-parse --abbrev-ref --symbolic-full-name @{u}", {
-      cwd,
-      stdio: ["ignore", "pipe", "ignore"],
-      encoding: "utf8",
-    }).trim();
-
-    return [
-      `- Branch: ${branch || "(detached or unknown)"}`,
-      `- Status: ${statusSummary}`,
-      "- Last 5 commits:",
-      ...commits.map((line) => `  - ${line}`),
-      `- Tracking: ${remote || "none"}`,
-    ].join("\n");
-  } catch {
-    return "- Not a git repository or git context unavailable.";
-  }
-}
-
-export function buildSystemPrompt(options: SystemPromptOptions): string {
+export async function buildSystemPrompt(
+  options: SystemPromptOptions,
+): Promise<string> {
   const { cwd } = options;
-  const platform = process.platform;
-  const osVersion = os.release();
-  const shell = process.env.SHELL ?? "/bin/sh";
-  const homeDir = os.homedir();
-  const now = new Date();
-  const dateStr = now.toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-  const gitContext = getGitContext(cwd);
+  const [envContext, gitContext, projectContext, instructions] =
+    await Promise.all([
+      Promise.resolve(detectEnvironmentContext(cwd)),
+      detectGitContext(cwd),
+      detectProjectContext(cwd),
+      loadCurioInstructions(cwd),
+    ]);
+
+  const projectContextText = [
+    `- Language(s): ${projectContext.language}`,
+    `- Framework: ${projectContext.framework ?? "unknown"}`,
+    `- Package manager: ${projectContext.packageManager ?? "unknown"}`,
+    `- Test framework: ${projectContext.testFramework ?? "unknown"}`,
+    `- Monorepo: ${projectContext.isMonorepo ? "yes" : "no"}`,
+    `- CI/CD: ${projectContext.cicd ?? "unknown"}`,
+    `- Project root: ${projectContext.projectRoot}`,
+  ].join("\n");
+
+  const instructionFilesText =
+    instructions.files.length > 0
+      ? instructions.files.map((file) => `  - ${file}`).join("\n")
+      : "  - none";
+  const customInstructionsText =
+    instructions.merged || "No CURIO.md / .curio-code/rules.md instructions found.";
 
   return `You are Curio Code, an expert AI coding assistant operating in the user's terminal.
 You help with software engineering tasks: reading, writing, searching, and modifying code, running commands, and explaining concepts.
 
 ## Environment
-- Operating System: ${platform} ${osVersion}
-- Shell: ${shell}
-- Working Directory: ${cwd}
-- Home Directory: ${homeDir}
-- Date: ${dateStr}
+${formatEnvironmentContextForPrompt(envContext)}
 
 ## Guidelines
 - Be concise and direct. Avoid unnecessary filler.
@@ -99,13 +73,20 @@ You help with software engineering tasks: reading, writing, searching, and modif
 - Add "Co-Authored-By: Curio Code <curio-code@local>" to commit messages.
 
 ## Project Context
-Project detection will be added in Phase 4.
+${projectContextText}
 
 ## Git Context
-${gitContext}
+${formatGitContextForPrompt(gitContext)}
+
+## .gitignore Patterns
+${gitContext.gitignorePatterns.length > 0 ? gitContext.gitignorePatterns.map((p) => `- ${p}`).join("\n") : "- none"}
 
 ## Custom Instructions
-Custom instructions from CURIO.md will be loaded in Phase 4.
+Loaded files:
+${instructionFilesText}
+
+Content:
+${customInstructionsText}
 
 ## Memory
 Persistent memory will be available in Phase 6.`;

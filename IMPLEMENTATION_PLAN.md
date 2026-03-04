@@ -954,14 +954,14 @@
 
 ---
 
-## Phase 4: Context Management & Intelligence
+## Phase 4: Context Management & Intelligence ✅ Completed
 
 > **Goal**: Smart context gathering so the agent understands the project it's working in.
 > **Deliverable**: Agent automatically detects project type, loads instructions, injects git context.
 
 ### 4.1 Project Detection (`src/context/project-detector.ts`)
 
-- [ ] **4.1.1** Detect project type from marker files:
+- [x] **4.1.1** Detect project type from marker files:
   - `package.json` → Node.js/TypeScript (check for `"type": "module"`, TypeScript deps)
   - `tsconfig.json` → TypeScript
   - `Cargo.toml` → Rust
@@ -976,7 +976,7 @@
   - `stack.yaml` / `*.cabal` → Haskell
   - `composer.json` → PHP
   - `Dockerfile` → containerized
-- [ ] **4.1.2** Detect framework:
+- [x] **4.1.2** Detect framework:
   - `next.config.*` → Next.js
   - `nuxt.config.*` → Nuxt
   - `vite.config.*` → Vite
@@ -986,16 +986,16 @@
   - Django, Flask, FastAPI (check Python deps)
   - Rails (Gemfile)
   - Spring Boot (pom.xml)
-- [ ] **4.1.3** Detect monorepo:
+- [x] **4.1.3** Detect monorepo:
   - `lerna.json` → Lerna
   - `nx.json` → Nx
   - `turbo.json` → Turborepo
   - `pnpm-workspace.yaml` → pnpm workspaces
   - Cargo workspaces (check Cargo.toml `[workspace]`)
-- [ ] **4.1.4** Detect CI/CD: `.github/workflows/`, `.gitlab-ci.yml`, `.circleci/`, `Jenkinsfile`
-- [ ] **4.1.5** Detect testing framework: Jest, Vitest, pytest, RSpec, Go test, cargo test, JUnit
-- [ ] **4.1.6** Detect package manager: npm, yarn, pnpm, bun, pip, poetry, cargo, go modules
-- [ ] **4.1.7** Return structured `ProjectContext`:
+- [x] **4.1.4** Detect CI/CD: `.github/workflows/`, `.gitlab-ci.yml`, `.circleci/`, `Jenkinsfile`
+- [x] **4.1.5** Detect testing framework: Jest, Vitest, pytest, RSpec, Go test, cargo test, JUnit
+- [x] **4.1.6** Detect package manager: npm, yarn, pnpm, bun, pip, poetry, cargo, go modules
+- [x] **4.1.7** Return structured `ProjectContext`:
   ```typescript
   interface ProjectContext {
     language: string;
@@ -1010,52 +1010,52 @@
 
 ### 4.2 Git Context (`src/context/git-context.ts`)
 
-- [ ] **4.2.1** Current branch name (`git rev-parse --abbrev-ref HEAD`)
-- [ ] **4.2.2** Git status summary:
+- [x] **4.2.1** Current branch name (`git rev-parse --abbrev-ref HEAD`)
+- [x] **4.2.2** Git status summary:
   - Modified files count
   - Staged files count
   - Untracked files count
   - Whether there are conflicts
-- [ ] **4.2.3** Recent commit history (`git log --oneline -10`)
-- [ ] **4.2.4** Remote tracking info (`git remote -v`)
-- [ ] **4.2.5** Detect if inside git repository (`git rev-parse --is-inside-work-tree`)
-- [ ] **4.2.6** Detect if inside git worktree (`git rev-parse --is-inside-work-tree` + `git worktree list`)
-- [ ] **4.2.7** `.gitignore` awareness: provide ignore patterns to file tools
+- [x] **4.2.3** Recent commit history (`git log --oneline -10`)
+- [x] **4.2.4** Remote tracking info (`git remote -v`)
+- [x] **4.2.5** Detect if inside git repository (`git rev-parse --is-inside-work-tree`)
+- [x] **4.2.6** Detect if inside git worktree (`git rev-parse --is-inside-work-tree` + `git worktree list`)
+- [x] **4.2.7** `.gitignore` awareness: provide ignore patterns to file tools
 
 ### 4.3 Instruction Files (`src/context/instruction-loader.ts`)
 
-- [ ] **4.3.1** Hierarchical loading (mirrors Claude Code's CLAUDE.md):
+- [x] **4.3.1** Hierarchical loading (mirrors Claude Code's CLAUDE.md):
   - **Global**: `~/.curio-code/CURIO.md`
   - **Project root**: `./CURIO.md`
   - **Directory-level**: `./.curio-code/rules.md`
   - Walk up parent directories looking for CURIO.md files
-- [ ] **4.3.2** Use SDK's `InstructionLoader` as base, customize:
+- [x] **4.3.2** Use SDK's `InstructionLoader` as base, customize:
   - Change default file names from `AGENT.md` to `CURIO.md`
   - Change search paths to include `.curio-code/` directories
-- [ ] **4.3.3** Support `.curioignore` for excluding files/directories from context
-- [ ] **4.3.4** Concatenate all found instructions, deduplicate
-- [ ] **4.3.5** Inject into system prompt as "Custom Instructions" section
+- [x] **4.3.3** Support `.curioignore` for excluding files/directories from context
+- [x] **4.3.4** Concatenate all found instructions, deduplicate
+- [x] **4.3.5** Inject into system prompt as "Custom Instructions" section
 
 ### 4.4 Context Window Management
 
-- [ ] **4.4.1** Use SDK's `ContextManager` with model-appropriate budget:
+- [x] **4.4.1** Use SDK's `ContextManager` with model-appropriate budget:
   - Claude Sonnet: 200K tokens (use 180K budget, reserve 20K for response)
   - GPT-4o: 128K tokens (use 110K budget)
   - Groq models: 8K-128K (varies, detect from model info)
   - Ollama: varies by model
-- [ ] **4.4.2** Strategy selection:
+- [x] **4.4.2** Strategy selection:
   - Default: `truncate_oldest` (fast, predictable)
   - Optional config: `summarize` (better context retention, requires extra LLM call)
-- [ ] **4.4.3** Always preserve in context:
+- [x] **4.4.3** Always preserve in context:
   - System prompt (never truncate)
   - Last 3 user messages + responses
   - Active tool results from current turn
-- [ ] **4.4.4** Show "[context compressed — older messages summarized]" when truncation occurs
-- [ ] **4.4.5** Token budget display in turn metrics
+- [x] **4.4.4** Show "[context compressed — older messages summarized]" when truncation occurs
+- [x] **4.4.5** Token budget display in turn metrics
 
 ### 4.5 Environment Context (`src/context/environment.ts`)
 
-- [ ] **4.5.1** Inject into system prompt:
+- [x] **4.5.1** Inject into system prompt:
   - Operating system and version (`process.platform`, `os.release()`)
   - Shell type (`$SHELL`)
   - Working directory (`process.cwd()`)
@@ -1063,6 +1063,24 @@
   - Terminal type (`$TERM`)
   - Available system tools: detect `git`, `rg`, `fd`, `gh`, `docker`, etc. via `which`
   - Language runtimes: detect `node`, `python`, `go`, `rustc`, `java`, etc.
+
+> **Phase 4 implementation status (2026-03-04)**
+> - Completed: 4.1.1–4.1.7, 4.2.1–4.2.7, 4.3.1–4.3.5, 4.4.1–4.4.5, 4.5.1.
+> - Files created/updated:
+>   - `src/context/project-detector.ts` — project/language/framework/monorepo/CI/test/package-manager detection and structured `ProjectContext` output.
+>   - `src/context/git-context.ts` — git repository/worktree detection, status summary parsing, commit/remote context, and `.gitignore` pattern extraction.
+>   - `src/context/instruction-loader.ts` — CURIO.md hierarchy loading using SDK `InstructionLoader`, plus `.curioignore`-aware filtering and deduped merge output.
+>   - `src/context/environment.ts` — OS/shell/TERM/date/cwd detection, available system tools/runtimes discovery via `which`, and prompt formatting helper.
+>   - `src/context/context-window.ts` — model-aware SDK `ContextManager` configuration (budgets + strategy), summarize-mode compression marker, and status-bar budget label helper.
+>   - `src/context/index.ts` — context module exports.
+>   - `src/agent/system-prompt.ts` — now asynchronously injects environment/project/git/custom-instruction context into the system prompt.
+>   - `src/agent/builder.ts` — now wires SDK `ContextManager` into `Agent.builder()` and returns context-budget metadata.
+>   - `src/cli/args.ts`, `src/cli/app.tsx`, `src/ui/components/status-bar.tsx` — pass and render context budget information in interactive UI metrics.
+>   - `tests/unit/context.test.ts`, `tests/unit/system-prompt.test.ts`, `tests/unit/builder.test.ts` — Phase 4 validation coverage and updated expectations.
+> - Notes:
+>   - Default context strategy is `truncate_oldest`; optional `summarize` mode is available via `CURIO_CODE_CONTEXT_STRATEGY=summarize`.
+>   - Summarize mode inserts `[context compressed - older messages summarized]` as the compression marker to preserve truncation visibility for downstream responses.
+>   - Custom instruction loading order is global (`~/.curio-code`) → project root → nested directories toward `cwd`, with duplicate content elimination.
 
 ---
 

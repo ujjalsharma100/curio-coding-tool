@@ -1,6 +1,5 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { PDFParse } from "pdf-parse";
 import { createTool } from "curio-agent-sdk";
 import { z } from "zod";
 import { toolSessionState } from "./session-state.js";
@@ -137,6 +136,9 @@ export const fileReadTool = createTool({
 
       if (extension === ".pdf") {
         const pdfBuffer = await fs.readFile(absolutePath);
+        // Load PDF parser lazily so binary startup does not eagerly evaluate
+        // heavy browser/canvas polyfills unless a PDF is actually requested.
+        const { PDFParse } = await import("pdf-parse");
         const parsed = await PDFParse(pdfBuffer as unknown as Buffer);
         const pageTexts = parsed.text.split("\f");
         let selectedPages = pageTexts;

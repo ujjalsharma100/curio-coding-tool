@@ -181,7 +181,8 @@ export async function runCli(argv: string[] = process.argv): Promise<void> {
       process.exit(1);
     }
 
-    const { agent, modelDisplayName, providerDisplayName } = agentResult;
+    const { agent, modelDisplayName, providerDisplayName, contextBudgetLabel } =
+      agentResult;
 
     try {
       if (runtimeConfig.interactive) {
@@ -191,6 +192,7 @@ export async function runCli(argv: string[] = process.argv): Promise<void> {
             agent,
             modelDisplayName,
             providerDisplayName,
+            contextBudgetLabel,
           }),
           {
             // Let the app handle Ctrl+C so we can interrupt active generation
