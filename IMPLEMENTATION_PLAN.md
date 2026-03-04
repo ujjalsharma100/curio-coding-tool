@@ -11,8 +11,8 @@
 2. [Architecture Overview](#architecture-overview)
 3. [SDK Verification — What Exists vs What We Build](#sdk-verification)
 4. [SDK Mapping — How Curio SDK Powers Each Feature](#sdk-mapping)
-5. [Phase 0: Foundation & SDK Dependency](#phase-0-foundation--sdk-dependency)
-6. [Phase 1: Core Agent Loop & Basic CLI](#phase-1-core-agent-loop--basic-cli)
+5. [Phase 0: Foundation & SDK Dependency ✅](#phase-0-foundation--sdk-dependency)
+6. [Phase 1: Core Agent Loop & Basic CLI ✅](#phase-1-core-agent-loop--basic-cli)
 7. [Phase 2: Tool System — File & Code Operations](#phase-2-tool-system--file--code-operations)
 8. [Phase 3: Terminal UI & Rich Output](#phase-3-terminal-ui--rich-output)
 9. [Phase 4: Context Management & Intelligence](#phase-4-context-management--intelligence)
@@ -251,7 +251,7 @@
 
 ---
 
-## Phase 0: Foundation & SDK Dependency
+## Phase 0: Foundation & SDK Dependency ✅ Completed
 
 > **Goal**: Project scaffolding, TypeScript SDK availability, basic build pipeline.
 > **Deliverable**: An empty project that can import and use the SDK.
@@ -426,14 +426,14 @@
 
 ---
 
-## Phase 1: Core Agent Loop & Basic CLI
+## Phase 1: Core Agent Loop & Basic CLI ✅ Completed
 
 > **Goal**: A working REPL that can converse with an LLM — no tools yet. Type a message, get a streaming response.
 > **Deliverable**: `bun run dev` launches an interactive chat with streaming text output.
 
 ### 1.1 CLI Entry Point (`src/cli/args.ts`, `src/index.ts`)
 
-- [ ] **1.1.1** Parse CLI arguments with Commander:
+- [x] **1.1.1** Parse CLI arguments with Commander:
   - `curio-code` — interactive mode (default)
   - `curio-code "prompt"` — one-shot mode (run once and exit)
   - `curio-code --model <model>` — model selection (e.g., `--model sonnet`)
@@ -447,24 +447,24 @@
   - `curio-code --permission-mode <mode>` — `ask` | `auto` | `strict`
   - `curio-code --no-memory` — disable persistent memory
   - `curio-code --max-turns <n>` — limit agent turns (for safety)
-- [ ] **1.1.2** Subcommands:
+- [x] **1.1.2** Subcommands:
   - `curio-code init` — initialize project config (create `.curio-code/config.json`)
   - `curio-code config` — show/edit configuration
   - `curio-code update` — self-update check
-- [ ] **1.1.3** Detect TTY vs pipe mode:
+- [x] **1.1.3** Detect TTY vs pipe mode:
   - TTY → interactive REPL with full TUI
   - Pipe → non-interactive, plain text output, read stdin as input
-- [ ] **1.1.4** Read stdin for piped input: `echo "fix this" | curio-code`
+- [x] **1.1.4** Read stdin for piped input: `echo "fix this" | curio-code`
   - Read all of stdin, treat as user message
   - Combine with positional arg if both provided: `cat file.ts | curio-code "explain this"`
-- [ ] **1.1.5** Signal handling:
+- [x] **1.1.5** Signal handling:
   - `SIGINT` (Ctrl+C): If generating → cancel current run. If idle → exit with confirmation.
   - `SIGTERM`: Graceful cleanup (save session, close agent)
   - `SIGHUP`: Save state and exit
 
 ### 1.2 Agent Construction (`src/agent/builder.ts`)
 
-- [ ] **1.2.1** Create agent builder wrapper that resolves config → SDK `AgentBuilder`:
+- [x] **1.2.1** Create agent builder wrapper that resolves config → SDK `AgentBuilder`:
   ```typescript
   export async function buildAgent(config: CurioConfig): Promise<Agent> {
     const provider = resolveProvider(config);
@@ -479,7 +479,7 @@
       .build();
   }
   ```
-- [ ] **1.2.2** System prompt construction (`src/agent/system-prompt.ts`):
+- [x] **1.2.2** System prompt construction (`src/agent/system-prompt.ts`):
   - **1.2.2a** Base coding assistant identity and behavioral instructions
   - **1.2.2b** Tool usage guidelines: when to use each tool, best practices
   - **1.2.2c** Environment context: OS, shell, working directory, date/time
@@ -488,21 +488,21 @@
   - **1.2.2f** Custom instruction placeholder (filled in Phase 4)
   - **1.2.2g** Memory context placeholder (filled in Phase 6)
   - **1.2.2h** Active skills context placeholder (filled in Phase 8)
-- [ ] **1.2.3** Provider resolution (`src/agent/provider-config.ts`):
+- [x] **1.2.3** Provider resolution (`src/agent/provider-config.ts`):
   - Auto-detect from environment variables (see 1.4)
   - CLI flag override
   - Config file override
   - Validate API key exists before creating provider
 
-### 1.3 REPL Loop (`src/cli/app.tsx`)
+### 1.3 REPL Loop (`src/cli/repl.ts`)
 
-- [ ] **1.3.1** Basic input loop:
+- [x] **1.3.1** Basic input loop:
   - Display prompt character (e.g., `> ` or `❯ `)
   - Read user input line
   - Send to agent
   - Display response
   - Repeat
-- [ ] **1.3.2** Streaming output:
+- [x] **1.3.2** Streaming output:
   - Call `agent.astream(userInput)`
   - For each `StreamEvent`:
     - `text_delta` → append text to output, render incrementally
@@ -511,52 +511,69 @@
     - `thinking` → show thinking text (if model supports it)
     - `error` → display error message
     - `done` → finalize output, show metrics
-- [ ] **1.3.3** Handle empty input (ignore, re-prompt)
-- [ ] **1.3.4** Handle EOF (Ctrl+D → exit gracefully)
-- [ ] **1.3.5** Handle Ctrl+C during generation:
+- [x] **1.3.3** Handle empty input (ignore, re-prompt)
+- [x] **1.3.4** Handle EOF (Ctrl+D → exit gracefully)
+- [x] **1.3.5** Handle Ctrl+C during generation:
   - Cancel the current `astream()` iteration
   - Keep the session alive
   - Return to input prompt
-  - **Note**: SDK does not support `AbortSignal` yet — implement via iterator break and agent state reset
-- [ ] **1.3.6** Display turn metrics after each response:
+  - **Note**: Implemented via `iterator.return()` + interrupted flag to break the streaming loop immediately.
+- [x] **1.3.6** Display turn metrics after each response:
   - Token count (input/output)
   - Cost (from CostTracker — placeholder until Phase later)
   - Duration
-- [ ] **1.3.7** One-shot mode:
+- [x] **1.3.7** One-shot mode:
   - If positional arg provided: run agent once, print result, exit
   - Respect `--print` flag (plain text, no TUI chrome)
 
 ### 1.4 Basic Provider Setup (`src/agent/provider-config.ts`)
 
-- [ ] **1.4.1** Auto-detect available providers from environment:
+- [x] **1.4.1** Auto-detect available providers from environment:
   - `ANTHROPIC_API_KEY` → `AnthropicProvider` (SDK built-in)
   - `OPENAI_API_KEY` → `OpenAIProvider` (SDK built-in)
   - `GROQ_API_KEY` → `GroqProvider` (SDK built-in)
   - `OLLAMA_HOST` or default `http://localhost:11434` → `OllamaProvider` (SDK built-in)
   - `GOOGLE_API_KEY` / `GEMINI_API_KEY` → Custom `GeminiProvider` (app-level, Phase 7)
-- [ ] **1.4.2** Default model selection priority:
+- [x] **1.4.2** Default model selection priority:
   1. `anthropic:claude-sonnet-4-6` (if `ANTHROPIC_API_KEY` set)
   2. `openai:gpt-4o` (if `OPENAI_API_KEY` set)
   3. `groq:llama-3.1-70b-versatile` (if `GROQ_API_KEY` set)
   4. `ollama:llama3.1` (if Ollama available)
   5. Error: "No LLM provider configured. Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or another provider key."
-- [ ] **1.4.3** Model override via `--model` flag:
+- [x] **1.4.3** Model override via `--model` flag:
   - Full format: `anthropic:claude-sonnet-4-6`
   - Short aliases: `sonnet` → `anthropic:claude-sonnet-4-6`, `opus` → `anthropic:claude-opus-4-6`, `gpt4o` → `openai:gpt-4o`, `haiku` → `anthropic:claude-haiku-4-5`
   - Use SDK's `parseModelString()` for parsing
-- [ ] **1.4.4** Display active model and provider on startup:
+- [x] **1.4.4** Display active model and provider on startup:
   ```
   Curio Code v0.1.0
   Model: claude-sonnet-4-6 (Anthropic)
   >
   ```
-- [ ] **1.4.5** Validate API key format (basic check — not a full auth test)
-- [ ] **1.4.6** Clear error messages for invalid/missing keys:
+- [x] **1.4.5** Validate API key format (basic check — not a full auth test)
+- [x] **1.4.6** Clear error messages for invalid/missing keys:
   ```
   Error: ANTHROPIC_API_KEY is not set.
   To use Claude models, set your API key: export ANTHROPIC_API_KEY=sk-...
   Or use a different provider: curio-code --model gpt-4o
   ```
+
+> **Phase 1 implementation status (2026-03-04)**
+> - Completed: 1.1.1–1.1.5, 1.2.1–1.2.3, 1.3.1–1.3.7, 1.4.1–1.4.6.
+> - Files created/updated:
+>   - `src/index.ts` — entry point delegates to `runCli()`.
+>   - `src/cli/args.ts` — Commander CLI with all flags, subcommands, TTY detection, stdin reading, and wiring to agent construction + REPL / one-shot.
+>   - `src/cli/repl.ts` — readline-based interactive REPL with streaming (`agent.astream()`), Ctrl+C interruption via `iterator.return()`, Ctrl+D exit, empty input handling, and turn metrics (tokens, duration, turns). Also exports `runOneShotMode` with `--print` support.
+>   - `src/agent/builder.ts` — `buildAgent(config)` wraps `Agent.builder()` with resolved provider, system prompt, and max iterations.
+>   - `src/agent/system-prompt.ts` — `buildSystemPrompt()` generates system prompt with identity, guidelines, environment context (OS, shell, cwd, date), and placeholders for project/git/instructions/memory/skills context (Phases 4–8).
+>   - `src/agent/provider-config.ts` — `resolveProvider()` auto-detects providers from env vars (ANTHROPIC_API_KEY, OPENAI_API_KEY, GROQ_API_KEY, OLLAMA_HOST), resolves short model aliases (sonnet, opus, haiku, gpt4o, etc.) via `MODEL_ALIASES`, validates API key presence, and builds an `LLMClient` with `autoDiscover: true`.
+> - Notes:
+>   - The REPL is implemented with Node `readline` (not Ink/React). Phase 3 will introduce the rich Ink-based TUI; the current `src/cli/repl.ts` will evolve into `src/cli/app.tsx` at that time.
+>   - Subcommands (`init`, `config`, `update`) are registered and parseable but print placeholder messages; full implementation deferred to later phases.
+>   - Session resume flags (`--continue`, `--resume`) are parsed into `CliRuntimeConfig` but not yet wired (Phase 6).
+>   - `--verbose` and `--permission-mode` are parsed but not yet consumed (Phases 5, 12).
+>   - Cost display in turn metrics shows token counts and duration; dollar cost from `CostTracker` will be added when middleware is wired.
+>   - Lint + type-check pass cleanly. Existing SDK smoke test still passes.
 
 ---
 
@@ -1935,8 +1952,8 @@
 
 | Phase | Description | Estimated Effort | Dependencies | MVP? |
 |-------|-------------|-----------------|-------------|------|
-| 0 | Foundation & SDK dependency | 1-2 weeks | TypeScript SDK ✅ | ✅ |
-| 1 | Core agent loop & basic CLI | 2-3 weeks | Phase 0 | ✅ |
+| 0 | Foundation & SDK dependency ✅ | 1-2 weeks | TypeScript SDK ✅ | ✅ |
+| 1 | Core agent loop & basic CLI ✅ | 2-3 weeks | Phase 0 | ✅ |
 | 2 | Tool system — file & code ops | 3-4 weeks | Phase 1 | ✅ |
 | 3 | Terminal UI & rich output | 2-3 weeks | Phase 1 | ✅ |
 | 4 | Context management | 1-2 weeks | Phase 2 | ✅ |
