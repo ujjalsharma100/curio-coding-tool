@@ -3,8 +3,7 @@ import React from "react";
 import { render } from "ink";
 import { buildAgent } from "../agent/builder.js";
 import { runOneShotMode } from "./repl.js";
-
-type PermissionMode = "ask" | "auto" | "strict";
+import type { PermissionMode } from "../permissions/modes.js";
 
 interface RawOptions {
   model?: string;

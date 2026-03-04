@@ -7,6 +7,13 @@ import {
   buildContextBudgetLabel,
   buildContextWindowRuntime,
 } from "../context/context-window.js";
+import {
+  type PermissionMode,
+  buildPermissionSystem,
+  permissionModeStartupWarning,
+  CliPermissionHandler,
+  AutoAllowHandler,
+} from "../permissions/index.js";
 
 export interface BuildAgentResult {
   agent: Agent;
@@ -15,6 +22,7 @@ export interface BuildAgentResult {
   modelDisplayName: string;
   providerDisplayName: string;
   contextBudgetLabel: string;
+  permissionMode: PermissionMode;
 }
 
 export async function buildAgent(
@@ -36,7 +44,23 @@ export async function buildAgent(
   const systemPrompt = await buildSystemPrompt({ cwd: process.cwd() });
   const contextWindow = buildContextWindowRuntime(resolved.model);
 
-  const agent = Agent.builder()
+  const mode: PermissionMode = config.permissionMode ?? "ask";
+
+  const warning = permissionModeStartupWarning(mode);
+  if (warning) {
+    process.stderr.write(`⚠ ${warning}\n`);
+  }
+
+  const { policy } = buildPermissionSystem({
+    mode,
+    projectRoot: process.cwd(),
+  });
+
+  const humanInput = mode === "auto"
+    ? new AutoAllowHandler()
+    : new CliPermissionHandler();
+
+  const builder = Agent.builder()
     .model(resolved.model)
     .llmClient(resolved.llmClient)
     .systemPrompt(systemPrompt)
@@ -44,7 +68,10 @@ export async function buildAgent(
     .contextManager(contextWindow.manager)
     .maxIterations(config.maxTurns ?? 100)
     .agentName("curio-code")
-    .build();
+    .permissions(policy)
+    .humanInput(humanInput);
+
+  const agent = builder.build();
 
   return {
     agent,
@@ -53,5 +80,6 @@ export async function buildAgent(
     modelDisplayName: resolved.modelDisplayName,
     providerDisplayName: resolved.providerDisplayName,
     contextBudgetLabel: buildContextBudgetLabel(contextWindow.config),
+    permissionMode: mode,
   };
 }

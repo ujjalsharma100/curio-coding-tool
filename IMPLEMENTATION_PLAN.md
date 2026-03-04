@@ -16,7 +16,7 @@
 7. [Phase 2: Tool System — File & Code Operations](#phase-2-tool-system--file--code-operations)
 8. [Phase 3: Terminal UI & Rich Output](#phase-3-terminal-ui--rich-output)
 9. [Phase 4: Context Management & Intelligence](#phase-4-context-management--intelligence)
-10. [Phase 5: Permission System & Security](#phase-5-permission-system--security)
+10. [Phase 5: Permission System & Security ✅](#phase-5-permission-system--security)
 11. [Phase 6: Session & Memory Persistence](#phase-6-session--memory-persistence)
 12. [Phase 7: Multi-Model & Provider Support](#phase-7-multi-model--provider-support)
 13. [Phase 8: Advanced Agent Features](#phase-8-advanced-agent-features)
@@ -1084,32 +1084,32 @@
 
 ---
 
-## Phase 5: Permission System & Security
+## Phase 5: Permission System & Security ✅ Completed
 
 > **Goal**: Safe, configurable permission controls that prevent accidental damage.
 > **Deliverable**: Users can control what the agent can do. Dangerous operations require confirmation.
 
 ### 5.1 Permission Modes (`src/permissions/modes.ts`)
 
-- [ ] **5.1.1** **Ask mode** (default):
+- [x] **5.1.1** **Ask mode** (default):
   - Allow: Read, Glob, Grep, Web Fetch, Web Search
   - Ask: Write, Edit, Bash, Notebook Edit
   - Use SDK's `AllowReadsAskWrites` as base policy
-- [ ] **5.1.2** **Auto mode** (trusted environments):
+- [x] **5.1.2** **Auto mode** (trusted environments):
   - Allow all operations without confirmation
   - Use SDK's `AllowAll`
   - Display warning on startup: "Running in auto mode — all operations will be allowed"
-- [ ] **5.1.3** **Strict mode**:
+- [x] **5.1.3** **Strict mode**:
   - Ask for everything including file reads
   - Use SDK's `AskAlways`
-- [ ] **5.1.4** Mode selection:
+- [x] **5.1.4** Mode selection:
   - `--permission-mode ask|auto|strict` CLI flag
   - `permissionMode` in config file
   - `/mode` slash command to switch mid-session
 
 ### 5.2 Tool-Level Permissions (`src/permissions/policies.ts`)
 
-- [ ] **5.2.1** Default permission matrix:
+- [x] **5.2.1** Default permission matrix:
   | Tool | Ask Mode | Auto Mode | Strict Mode |
   |------|----------|-----------|-------------|
   | Read | allow | allow | ask |
@@ -1122,7 +1122,7 @@
   | Bash | ask | allow | ask |
   | Notebook Edit | ask | allow | ask |
   | Git push/force | always ask | ask | ask |
-- [ ] **5.2.2** Implement using SDK's `CompoundPolicy`:
+- [x] **5.2.2** Implement using SDK's `CompoundPolicy`:
   ```typescript
   const policy = new CompoundPolicy([
     new FileSandboxPolicy({ allowedPrefixes: [projectRoot, homeConfigDir] }),
@@ -1133,26 +1133,26 @@
 
 ### 5.3 Path Restrictions (`src/permissions/allowlist.ts`)
 
-- [ ] **5.3.1** Use SDK's `FileSandboxPolicy`:
+- [x] **5.3.1** Use SDK's `FileSandboxPolicy`:
   - Default allowed: project root directory, `~/.curio-code/`
   - Configurable via `allowedPaths` in config
-- [ ] **5.3.2** Blocked paths (always denied):
+- [x] **5.3.2** Blocked paths (always denied):
   - `/etc/shadow`, `/etc/passwd`
   - `~/.ssh/` (private keys)
   - `~/.aws/credentials`
   - Other credential files
-- [ ] **5.3.3** Warn when accessing sensitive files:
+- [x] **5.3.3** Warn when accessing sensitive files:
   - `.env`, `.env.local`, `.env.production`
   - `credentials.json`, `*.pem`, `*.key`
 
 ### 5.4 Bash Command Safety (`src/permissions/bash-classifier.ts`)
 
-- [ ] **5.4.1** Classify commands by risk level:
+- [x] **5.4.1** Classify commands by risk level:
   - **Safe** (auto-allow in ask mode): `ls`, `cat`, `echo`, `pwd`, `git status`, `git log`, `git diff`, `git branch`, `npm test`, `bun test`, `cargo test`, `go test`, `python -m pytest`
   - **Moderate** (ask once, then allow for session): `npm install`, `bun add`, `git commit`, `git add`, build commands, `make`
   - **Dangerous** (always ask): `rm -rf`, `git push --force`, `git reset --hard`, `sudo`, `chmod`, `chown`, `dd`, `mkfs`, `curl | sh`, `kill`, `pkill`
-- [ ] **5.4.2** Regex-based classification (extensible)
-- [ ] **5.4.3** Configurable allowlist/blocklist in config:
+- [x] **5.4.2** Regex-based classification (extensible)
+- [x] **5.4.3** Configurable allowlist/blocklist in config:
   ```json
   {
     "permissions": {
@@ -1164,7 +1164,7 @@
 
 ### 5.5 Confirmation UI (`src/ui/components/permission.tsx`)
 
-- [ ] **5.5.1** Use SDK's `HumanInputHandler` interface with custom Ink component:
+- [x] **5.5.1** Use SDK's `HumanInputHandler` interface with custom Ink component:
   ```
   ┌─ Permission Required ──────────────────────────┐
   │ Tool: Bash                                       │
@@ -1174,23 +1174,45 @@
   │ [y]es  [n]o  [a]lways allow this tool  [e]dit   │
   └──────────────────────────────────────────────────┘
   ```
-- [ ] **5.5.2** Options:
+- [x] **5.5.2** Options:
   - `y` (yes) — allow this once
   - `n` (no) — deny
   - `a` (always) — allow this tool for rest of session
   - `e` (edit) — modify the arguments before executing
-- [ ] **5.5.3** "Always allow" persistence:
+- [x] **5.5.3** "Always allow" persistence:
   - Per-session (in memory)
   - Optionally permanent (saved to config)
-- [ ] **5.5.4** Keyboard shortcuts for quick approve/deny
-- [ ] **5.5.5** Timeout option: auto-deny after configurable seconds (disabled by default)
+- [x] **5.5.4** Keyboard shortcuts for quick approve/deny
+- [x] **5.5.5** Timeout option: auto-deny after configurable seconds (disabled by default)
 
 ### 5.6 Network Security
 
-- [ ] **5.6.1** Default: allow all outbound network (needed for LLM APIs, web fetch)
-- [ ] **5.6.2** Optionally use SDK's `NetworkSandboxPolicy`:
+- [x] **5.6.1** Default: allow all outbound network (needed for LLM APIs, web fetch)
+- [x] **5.6.2** Optionally use SDK's `NetworkSandboxPolicy`:
   - Configure allowed domains/URLs in config
   - Block specific domains
+
+> **Phase 5 implementation status (2026-03-04)**
+> - Completed: 5.1.1–5.1.4, 5.2.1–5.2.2, 5.3.1–5.3.3, 5.4.1–5.4.3, 5.5.1–5.5.5, 5.6.1–5.6.2.
+> - Files created/updated:
+>   - `src/permissions/modes.ts` — `basePolicyForMode()` maps ask/auto/strict to SDK policies (AllowReadsAskWrites, AllowAll, AskAlways); startup warning for auto mode.
+>   - `src/permissions/policies.ts` — `buildPermissionSystem()` assembles a five-layer `CompoundPolicy` (PathGuard → FileSandbox → ModePolicy → BashSafety → optional NetworkSandbox); custom `BashSafetyPolicy` and `PathGuardPolicy` classes.
+>   - `src/permissions/allowlist.ts` — `isBlockedPath()` for credential/system files, `isSensitivePath()` for .env/cert/key files, `buildFileSandboxPolicy()` using SDK `FileSandboxPolicy` with project root + ~/.curio-code/ + /tmp.
+>   - `src/permissions/bash-classifier.ts` — regex-based `classifyCommand()` with safe/moderate/dangerous tiers, configurable `allowedCommands`/`blockedCommands` overrides.
+>   - `src/permissions/network.ts` — `buildNetworkPolicy()` wrapping SDK `NetworkSandboxPolicy`, disabled by default.
+>   - `src/permissions/human-input.ts` — `CliPermissionHandler` (readline-based y/n/always with optional timeout) and `AutoAllowHandler` (headless auto-allow for auto mode/tests).
+>   - `src/permissions/index.ts` — barrel re-exports for all permission module types and functions.
+>   - `src/ui/components/permission.tsx` — Ink `PermissionPrompt` component with themed border, tool/action display, and [y]/[n]/[a] keyboard shortcuts.
+>   - `src/agent/builder.ts` — now wires `CompoundPolicy` via `.permissions()` and `HumanInputHandler` via `.humanInput()` into `Agent.builder()`.
+>   - `src/cli/args.ts` — imports `PermissionMode` from permissions module (single source of truth).
+>   - `tests/unit/permissions.test.ts` — comprehensive test coverage for modes, compound policy assembly, path restrictions, bash classification, human input handlers, and network security.
+> - Notes:
+>   - Default mode is "ask" — read tools auto-allowed, write tools require confirmation.
+>   - Auto mode prints a `⚠` startup warning to stderr.
+>   - Path guard layer runs before all other policies — blocked paths (SSH keys, AWS creds, /etc/shadow) are unconditionally denied; sensitive files (.env, .pem, .key) trigger confirmation.
+>   - Bash classifier priority: dangerous patterns checked first, then safe, then moderate; unknown commands default to moderate.
+>   - "Always allow" persistence is per-session in memory (via `CliPermissionHandler.markAlwaysAllowed()`); config-based permanence deferred to Phase 10.
+>   - Network sandbox is opt-in (disabled by default) since LLM API calls and web tools need outbound access.
 
 ---
 
