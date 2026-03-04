@@ -6,16 +6,19 @@ import {
   formatGitContextForPrompt,
   loadCurioInstructions,
 } from "../context/index.js";
+import { getModelMetadata } from "./provider-config.js";
 
 export interface SystemPromptOptions {
   cwd: string;
   memoryContent?: string;
+  providerName?: string;
+  modelId?: string;
 }
 
 export async function buildSystemPrompt(
   options: SystemPromptOptions,
 ): Promise<string> {
-  const { cwd, memoryContent } = options;
+  const { cwd, memoryContent, providerName, modelId } = options;
   const [envContext, gitContext, projectContext, instructions] =
     await Promise.all([
       Promise.resolve(detectEnvironmentContext(cwd)),
@@ -90,5 +93,40 @@ Content:
 ${customInstructionsText}
 
 ## Memory
-${memoryContent ?? "No persistent memories stored yet."}`;
+${memoryContent ?? "No persistent memories stored yet."}
+${buildProviderHints(providerName, modelId)}`;
+}
+
+function buildProviderHints(providerName?: string, modelId?: string): string {
+  if (!providerName) return "";
+
+  const hints: string[] = [];
+
+  const fullModelKey = modelId && providerName ? `${providerName}:${modelId}` : undefined;
+  const meta = fullModelKey ? getModelMetadata(fullModelKey) : undefined;
+
+  if (meta) {
+    if (!meta.supportsVision) {
+      hints.push("- This model does NOT support vision/images. Do not reference or request image analysis.");
+    }
+    if (meta.supportsThinking) {
+      hints.push("- This model supports extended thinking/reasoning. Use it for complex problems.");
+    }
+  }
+
+  if (providerName === "ollama") {
+    hints.push(
+      "- Running on local Ollama instance. Tool calling may have limited support.",
+      "- Prefer simpler tool schemas. Avoid deeply nested Zod objects.",
+    );
+  }
+
+  if (providerName === "groq") {
+    hints.push(
+      "- Running on Groq (fast inference). Context window is smaller (32k). Be concise.",
+    );
+  }
+
+  if (hints.length === 0) return "";
+  return `\n## Model Notes\n${hints.join("\n")}`;
 }

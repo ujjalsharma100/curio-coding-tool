@@ -182,6 +182,8 @@ export async function runCli(argv: string[] = process.argv): Promise<void> {
 
     const {
       agent,
+      model,
+      providerName,
       modelDisplayName,
       providerDisplayName,
       contextBudgetLabel,
@@ -197,6 +199,8 @@ export async function runCli(argv: string[] = process.argv): Promise<void> {
         const inkApp = render(
           React.createElement(App, {
             agent,
+            model,
+            providerName,
             modelDisplayName,
             providerDisplayName,
             contextBudgetLabel,

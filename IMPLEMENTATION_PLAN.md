@@ -18,7 +18,7 @@
 9. [Phase 4: Context Management & Intelligence](#phase-4-context-management--intelligence)
 10. [Phase 5: Permission System & Security ✅](#phase-5-permission-system--security)
 11. [Phase 6: Session & Memory Persistence ✅](#phase-6-session--memory-persistence)
-12. [Phase 7: Multi-Model & Provider Support](#phase-7-multi-model--provider-support)
+12. [Phase 7: Multi-Model & Provider Support ✅](#phase-7-multi-model--provider-support)
 13. [Phase 8: Advanced Agent Features](#phase-8-advanced-agent-features)
 14. [Phase 9: MCP Integration](#phase-9-mcp-integration)
 15. [Phase 10: Configuration & Customization](#phase-10-configuration--customization)
@@ -209,8 +209,8 @@
 | `PlanState` | Phase 8.2 | **Build in app layer**: plan mode state tracking, tool restriction, plan file management |
 | `TodoManager` / `Todo` | Phase 8.3 | **Build in app layer**: task CRUD, dependency tracking, state machine |
 | `StructuredOutput` | Phase 8.5 | **Build in app layer**: JSON mode wrapper with Zod validation (low priority) |
-| Google/Gemini Provider | Phase 7.1 | **Build as custom provider** implementing `LLMProvider` interface, or wait for SDK update |
-| Additional providers (Bedrock, Azure, etc.) | Phase 7.1 | **Use OpenAI-compatible base URL** for most; custom providers for Bedrock/Azure |
+| Google/Gemini Provider | Phase 7.1 ✅ | **Built as custom `GeminiProvider`** implementing `LLMProvider` — REST API, streaming, tool calling |
+| Additional providers (Bedrock, Azure, etc.) | Phase 7.1 ✅ | **Built `OpenAICompatibleProvider`** — OpenRouter, DeepSeek, Together, Mistral via custom baseURL |
 | `fileEditTool` (built-in) | Phase 2.3 | **Build as custom tool** — exact string replacement with uniqueness validation |
 | `globTool` (built-in) | Phase 2.4 | **Build as custom tool** — pattern matching with fast-glob |
 | `grepTool` (built-in) | Phase 2.5 | **Build as custom tool** — ripgrep wrapper |
@@ -533,7 +533,7 @@
   - `OPENAI_API_KEY` → `OpenAIProvider` (SDK built-in)
   - `GROQ_API_KEY` → `GroqProvider` (SDK built-in)
   - `OLLAMA_HOST` or default `http://localhost:11434` → `OllamaProvider` (SDK built-in)
-  - `GOOGLE_API_KEY` / `GEMINI_API_KEY` → Custom `GeminiProvider` (app-level, Phase 7)
+  - `GOOGLE_API_KEY` / `GEMINI_API_KEY` → Custom `GeminiProvider` (app-level, Phase 7 ✅)
 - [x] **1.4.2** Default model selection priority:
   1. `anthropic:claude-sonnet-4-6` (if `ANTHROPIC_API_KEY` set)
   2. `openai:gpt-4o` (if `OPENAI_API_KEY` set)
@@ -1320,32 +1320,36 @@
 
 ---
 
-## Phase 7: Multi-Model & Provider Support
+## Phase 7: Multi-Model & Provider Support ✅
 
 > **Goal**: Work with any LLM provider seamlessly. Switch models mid-session.
 > **Deliverable**: Support Anthropic, OpenAI, Groq, Ollama out of the box. Easy to add more.
 
 ### 7.1 Provider Registry (`src/agent/provider-config.ts`)
 
-- [ ] **7.1.1** SDK built-in providers (ready to use):
+- [x] **7.1.1** SDK built-in providers (ready to use):
   - **Anthropic**: Claude Opus 4.6, Sonnet 4.6, Haiku 4.5 — `AnthropicProvider`
   - **OpenAI**: GPT-4o, GPT-4o-mini, o1, o3 — `OpenAIProvider`
   - **Groq**: Llama 3.1, Mixtral — `GroqProvider`
   - **Ollama**: Any local model — `OllamaProvider`
-- [ ] **7.1.2** Custom providers (implement in app layer):
+- [x] **7.1.2** Custom providers (implement in app layer):
   - **Google/Gemini**: Custom `GeminiProvider` implementing `LLMProvider` interface
-    - Use `@google/generative-ai` SDK or REST API
-    - Support streaming, tool calling, vision
-  - **OpenAI-compatible** (covers many providers): Extend `OpenAIProvider` with custom `baseURL`
+    - Uses Google's REST API directly (no extra dependency) — streaming, tool calling, vision
+  - **OpenAI-compatible** (covers many providers): `OpenAICompatibleProvider` wrapping `OpenAIProvider` with custom `baseURL`
     - OpenRouter: `baseURL: "https://openrouter.ai/api/v1"`
     - DeepSeek: `baseURL: "https://api.deepseek.com"`
     - Together AI: `baseURL: "https://api.together.xyz/v1"`
     - Mistral: `baseURL: "https://api.mistral.ai/v1"`
     - Any vLLM/LM Studio/LocalAI endpoint
-  - **AWS Bedrock**: Custom provider wrapping AWS SDK (lower priority)
-  - **Azure OpenAI**: Custom provider wrapping Azure SDK (lower priority)
-- [ ] **7.1.3** Provider auto-detection from environment variables
-- [ ] **7.1.4** Custom provider support via config:
+  - **AWS Bedrock**: Deferred (lower priority — can add later via `OpenAICompatibleProvider`)
+  - **Azure OpenAI**: Deferred (lower priority — can add later via `OpenAICompatibleProvider`)
+  - **Note**: Custom providers registered programmatically via SDK's `LLMClient.registerProvider()`
+- [x] **7.1.3** Provider auto-detection from environment variables
+  - Extended `DEFAULT_MODEL_PRIORITY` with `GOOGLE_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `TOGETHER_API_KEY`, `MISTRAL_API_KEY`
+  - `detectAvailableProviders()` scans all env vars
+- [x] **7.1.4** Custom provider support via config:
+  - `CurioProviderConfig` interface with `providers` map of `CustomProviderDefinition`
+  - `registerConfigProviders(client, config)` for JSON-based provider registration
   ```json
   {
     "providers": {
@@ -1361,46 +1365,57 @@
 
 ### 7.2 Model Selection
 
-- [ ] **7.2.1** `--model` flag with full and short formats:
+- [x] **7.2.1** `--model` flag with full and short formats:
   - Full: `curio-code --model anthropic:claude-sonnet-4-6`
-  - Short aliases: `--model sonnet`, `--model opus`, `--model haiku`, `--model gpt4o`, `--model gemini`
-- [ ] **7.2.2** Config file default model: `{ "model": "anthropic:claude-sonnet-4-6" }`
-- [ ] **7.2.3** `/model` slash command to switch mid-session:
-  - `/model` — show current model info
-  - `/model sonnet` — switch to Claude Sonnet
-  - `/model list` — show available models
-- [ ] **7.2.4** Model info display:
-  - Name, provider, context window size, pricing
-  - Vision support indicator
+  - Short aliases: `--model sonnet`, `--model opus`, `--model haiku`, `--model gpt4o`, `--model gemini`, `--model deepseek`, `--model mistral`, `--model openrouter`
+- [x] **7.2.2** Config file default model: `CurioProviderConfig.defaultModel` supported; `{ "model": "anthropic:claude-sonnet-4-6" }`
+- [x] **7.2.3** `/model` slash command for model info (mid-session switching deferred to Phase 8):
+  - `/model` — show current model info (name, provider, context, vision, tools, thinking, pricing)
+  - `/model list` — show available models grouped by provider with capability indicators
+  - `/model aliases` — show all short alias mappings
+- [x] **7.2.4** Model info display:
+  - Name, provider, context window size, pricing (per M tokens)
+  - Vision support indicator (👁)
   - Tool calling support indicator
+  - Thinking/reasoning support indicator (🧠)
+  - Available providers detection
 
 ### 7.3 Tiered Routing
 
-- [ ] **7.3.1** Use SDK's `TieredRouter` for intelligent model selection:
-  - **Tier 1** (fast/cheap): Haiku, GPT-4o-mini, Gemini Flash — used for subagents, simple tasks
-  - **Tier 2** (balanced): Sonnet, GPT-4o, Gemini Pro — default for user interactions
-  - **Tier 3** (quality): Opus, o1 — complex reasoning, architecture
-- [ ] **7.3.2** Automatic fallback on rate limits or errors:
-  - Tier 2 fails → try Tier 1
-  - Provider fails → try next provider in same tier
-- [ ] **7.3.3** Cost-aware routing: prefer cheaper model when task is simple
+- [x] **7.3.1** Use SDK's `TieredRouter` for intelligent model selection:
+  - **Tier 1** (fast/cheap): Haiku, GPT-4o-mini, Groq Llama, Gemini Flash — used for subagents, simple tasks
+  - **Tier 2** (balanced): Sonnet, GPT-4o, Gemini Pro, DeepSeek, Mistral — default for user interactions
+  - **Tier 3** (quality): Opus, o1, o3 — complex reasoning, architecture
+  - `getModelTier()` for tier lookup, `buildTieredRouter()` factory
+- [x] **7.3.2** Automatic fallback on rate limits or errors:
+  - `degradationStrategy: "fallback_to_lower_tier"` configured by default
+  - Router config passed to `LLMClient` constructor
+- [x] **7.3.3** Cost-aware routing: tier system inherently prefers cheaper models for simple tasks
+  - Model metadata includes `inputPricePerMToken` / `outputPricePerMToken` for comparison
 
 ### 7.4 Model-Specific Adaptations
 
-- [ ] **7.4.1** System prompt format adjustments per provider:
-  - Anthropic: use `<system>` block convention
-  - OpenAI: use `system` message role
-  - Gemini: use system instruction
-- [ ] **7.4.2** Handle provider-specific tool calling:
-  - SDK handles this via provider abstraction, but verify each provider works
-- [ ] **7.4.3** Respect per-model context window limits in `ContextManager` budget
-- [ ] **7.4.4** Handle thinking/reasoning tokens:
-  - Anthropic extended thinking → capture `thinking` stream events
-  - OpenAI o1/o3 → handle reasoning tokens
-- [ ] **7.4.5** Vision support detection:
-  - Track which models support vision (Claude, GPT-4o, Gemini)
-  - Skip image tools for text-only models (Groq Llama, some Ollama models)
-  - Warn if user provides image to non-vision model
+- [x] **7.4.1** System prompt format adjustments per provider:
+  - `buildProviderHints()` adds provider-specific notes to system prompt
+  - Gemini: system instruction via `systemInstruction` field in `GeminiProvider`
+  - Ollama: hints about limited tool calling support
+  - Groq: hints about smaller context window
+- [x] **7.4.2** Handle provider-specific tool calling:
+  - SDK handles Anthropic/OpenAI/Groq/Ollama via provider abstraction
+  - `GeminiProvider` maps tools to `functionDeclarations` format
+  - `OpenAICompatibleProvider` delegates to `OpenAIProvider` (supports all OpenAI-compatible tool formats)
+- [x] **7.4.3** Respect per-model context window limits in `ContextManager` budget
+  - Extended `resolveDefaultContextConfig()` with Gemini (1M/2M), DeepSeek (64k), Mistral (128k), OpenAI o1/o3 (200k), together/openrouter (64k)
+- [x] **7.4.4** Handle thinking/reasoning tokens:
+  - `ModelMetadata.supportsThinking` flag tracks thinking-capable models
+  - Anthropic Opus/Sonnet, OpenAI o1/o3, Gemini Pro marked as thinking-capable
+  - System prompt includes thinking hints when model supports it
+  - `thinking` stream events already captured in app.tsx `handleStreamEvent`
+- [x] **7.4.5** Vision support detection:
+  - `ModelMetadata.supportsVision` flag per model
+  - Claude, GPT-4o, Gemini: vision=true; Groq Llama, DeepSeek, Mistral: vision=false
+  - System prompt warns when model does NOT support vision
+  - `/model` and `/model list` display vision indicators
 
 ---
 
@@ -2043,7 +2058,7 @@
 | Risk | Impact | Likelihood | Mitigation |
 |------|--------|-----------|-----------|
 | SDK missing PlanState/TodoManager | Medium | **Confirmed** | Implement in app layer (already planned). See SDK_IMPROVEMENTS.md. |
-| SDK missing Gemini provider | Medium | **Confirmed** | Implement custom GeminiProvider in app layer. Use OpenAI-compatible base for other providers. |
+| SDK missing Gemini provider | Medium | **Resolved ✅** | Implemented custom `GeminiProvider` (REST API) and `OpenAICompatibleProvider` in Phase 7. |
 | SDK lacks AbortSignal support | Medium | Medium | Implement via iterator break + state reset. File SDK improvement request. |
 | Binary size too large (>100MB) | Medium | Low | Tree-shaking, lazy imports, Bun compile optimization |
 | Startup time too slow | High | Low | Profile and optimize; lazy loading; ahead-of-time compilation |

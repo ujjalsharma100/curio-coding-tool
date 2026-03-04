@@ -107,6 +107,8 @@ export async function buildAgent(
   const systemPrompt = await buildSystemPrompt({
     cwd,
     memoryContent: memoryPromptContent,
+    providerName: resolved.providerName,
+    modelId: resolved.modelDisplayName,
   });
   const contextWindow = buildContextWindowRuntime(resolved.model);
 

@@ -26,6 +26,9 @@ function resolveDefaultContextConfig(model: string): ContextWindowConfig {
     return { maxTokens: 200_000, reserveTokens: 20_000, strategy: "truncate_oldest" };
   }
   if (provider === "openai") {
+    if (modelId.includes("o1") || modelId.includes("o3")) {
+      return { maxTokens: 200_000, reserveTokens: 20_000, strategy: "truncate_oldest" };
+    }
     if (modelId.includes("gpt-4o")) {
       return { maxTokens: 128_000, reserveTokens: 18_000, strategy: "truncate_oldest" };
     }
@@ -33,6 +36,21 @@ function resolveDefaultContextConfig(model: string): ContextWindowConfig {
   }
   if (provider === "groq") {
     return { maxTokens: 32_000, reserveTokens: 4_000, strategy: "truncate_oldest" };
+  }
+  if (provider === "gemini") {
+    if (modelId.includes("2.0-pro") || modelId.includes("1.5-pro")) {
+      return { maxTokens: 2_000_000, reserveTokens: 50_000, strategy: "truncate_oldest" };
+    }
+    return { maxTokens: 1_000_000, reserveTokens: 30_000, strategy: "truncate_oldest" };
+  }
+  if (provider === "deepseek") {
+    return { maxTokens: 64_000, reserveTokens: 8_000, strategy: "truncate_oldest" };
+  }
+  if (provider === "mistral") {
+    return { maxTokens: 128_000, reserveTokens: 16_000, strategy: "truncate_oldest" };
+  }
+  if (provider === "together" || provider === "openrouter") {
+    return { maxTokens: 64_000, reserveTokens: 8_000, strategy: "truncate_oldest" };
   }
   if (provider === "ollama") {
     return { maxTokens: 16_000, reserveTokens: 2_000, strategy: "truncate_oldest" };

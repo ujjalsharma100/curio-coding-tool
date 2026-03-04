@@ -20,6 +20,8 @@ import { processAutoMemory } from "../memory/index.js";
 
 interface AppProps {
   readonly agent: Agent;
+  readonly model: string;
+  readonly providerName: string;
   readonly modelDisplayName: string;
   readonly providerDisplayName: string;
   readonly contextBudgetLabel?: string;
@@ -80,6 +82,8 @@ function ThinkingIndicator({ theme }: { theme: ReturnType<typeof getActiveTheme>
 
 export function App({
   agent,
+  model,
+  providerName,
   modelDisplayName,
   providerDisplayName,
   contextBudgetLabel,
@@ -250,6 +254,8 @@ export function App({
     sessionManager,
     memoryFile,
     currentSessionId,
+    currentModel: model,
+    currentProvider: providerName,
     onCompact: async () => "[context compressed — older messages removed]",
   };
 
