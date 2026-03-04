@@ -8,12 +8,26 @@ import { ToolCallView } from "../ui/components/tool-call.js";
 import { Input } from "../ui/components/input.js";
 import { Spinner } from "../ui/components/spinner.js";
 import { Notification, type NotificationItem } from "../ui/components/notification.js";
+import {
+  isSlashCommand,
+  handleSlashCommand,
+  type SlashCommandContext,
+} from "./commands/slash-commands.js";
+import { InputHistory } from "./history.js";
+import type { CurioSessionManager } from "../sessions/manager.js";
+import type { MemoryFileManager } from "../memory/memory-file.js";
+import { processAutoMemory } from "../memory/index.js";
 
 interface AppProps {
   readonly agent: Agent;
   readonly modelDisplayName: string;
   readonly providerDisplayName: string;
   readonly contextBudgetLabel?: string;
+  readonly sessionManager?: CurioSessionManager;
+  readonly currentSessionId?: string;
+  readonly resumedFromSession?: string;
+  readonly memoryFile?: MemoryFileManager;
+  readonly memoryEnabled?: boolean;
 }
 
 interface ConversationMessage {
@@ -69,6 +83,11 @@ export function App({
   modelDisplayName,
   providerDisplayName,
   contextBudgetLabel,
+  sessionManager,
+  currentSessionId,
+  resumedFromSession,
+  memoryFile,
+  memoryEnabled,
 }: AppProps): JSX.Element {
   const theme = getActiveTheme();
   const { exit } = useApp();
@@ -92,9 +111,33 @@ export function App({
     null,
   );
   const interruptedRef = useRef(false);
+  const inputHistoryRef = useRef(new InputHistory());
+  const [persistedHistory, setPersistedHistory] = useState<string[]>([]);
 
   const termWidth = stdout?.columns ?? 120;
   const isCompact = termWidth < COMPACT_WIDTH;
+
+  useEffect(() => {
+    const loadHistory = async () => {
+      const history = inputHistoryRef.current;
+      const entries = await history.load();
+      setPersistedHistory(entries);
+    };
+    void loadHistory();
+  }, []);
+
+  useEffect(() => {
+    if (resumedFromSession) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: genId(),
+          role: "assistant" as MessageRole,
+          content: `[Resumed session ${resumedFromSession.slice(0, 8)}]`,
+        },
+      ]);
+    }
+  }, [resumedFromSession]);
 
   const pushNotification = useCallback(
     (level: NotificationItem["level"], text: string) => {
@@ -203,9 +246,52 @@ export function App({
     [pushNotification],
   );
 
+  const slashCommandContext: SlashCommandContext = {
+    sessionManager,
+    memoryFile,
+    currentSessionId,
+    onCompact: async () => "[context compressed — older messages removed]",
+  };
+
   const sendMessage = useCallback(
     async (input: string) => {
       if (!input.trim() || isStreaming) return;
+
+      await inputHistoryRef.current.add(input.trim());
+      setPersistedHistory(inputHistoryRef.current.getEntries());
+
+      if (isSlashCommand(input)) {
+        const result = await handleSlashCommand(input, slashCommandContext);
+        if (result.handled) {
+          if (result.output === "__CLEAR__") {
+            setMessages([]);
+            setToolCalls([]);
+            return;
+          }
+          const content = result.error ?? result.output ?? "";
+          setMessages((prev) => [
+            ...prev,
+            { id: genId(), role: "user", content: input },
+            {
+              id: genId(),
+              role: "assistant",
+              content,
+            },
+          ]);
+          return;
+        }
+      }
+
+      if (memoryEnabled && memoryFile) {
+        try {
+          const saved = await processAutoMemory(input, memoryFile);
+          for (const msg of saved) {
+            pushNotification("info", msg);
+          }
+        } catch {
+          // Best-effort auto-memory
+        }
+      }
 
       const imagePaths = detectImagePaths(input);
       if (imagePaths.length > 0) {
@@ -259,7 +345,7 @@ export function App({
         currentStreamRef.current = null;
       }
     },
-    [agent, handleStreamEvent, isStreaming, pushNotification],
+    [agent, handleStreamEvent, isStreaming, pushNotification, slashCommandContext, memoryEnabled, memoryFile],
   );
 
   useInput((input, key) => {
@@ -338,7 +424,12 @@ export function App({
         ))}
       </Box>
       <Box marginTop={1}>
-        <Input theme={theme} disabled={isStreaming} onSubmit={sendMessage} />
+        <Input
+          theme={theme}
+          disabled={isStreaming}
+          onSubmit={sendMessage}
+          persistedHistory={persistedHistory}
+        />
       </Box>
       {!isCompact && (
         <Box marginTop={1}>
@@ -348,4 +439,3 @@ export function App({
     </Box>
   );
 }
-

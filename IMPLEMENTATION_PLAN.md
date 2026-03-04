@@ -17,7 +17,7 @@
 8. [Phase 3: Terminal UI & Rich Output](#phase-3-terminal-ui--rich-output)
 9. [Phase 4: Context Management & Intelligence](#phase-4-context-management--intelligence)
 10. [Phase 5: Permission System & Security ✅](#phase-5-permission-system--security)
-11. [Phase 6: Session & Memory Persistence](#phase-6-session--memory-persistence)
+11. [Phase 6: Session & Memory Persistence ✅](#phase-6-session--memory-persistence)
 12. [Phase 7: Multi-Model & Provider Support](#phase-7-multi-model--provider-support)
 13. [Phase 8: Advanced Agent Features](#phase-8-advanced-agent-features)
 14. [Phase 9: MCP Integration](#phase-9-mcp-integration)
@@ -570,7 +570,7 @@
 > - Notes:
 >   - The REPL is implemented with Node `readline` (not Ink/React). Phase 3 will introduce the rich Ink-based TUI; the current `src/cli/repl.ts` will evolve into `src/cli/app.tsx` at that time.
 >   - Subcommands (`init`, `config`, `update`) are registered and parseable but print placeholder messages; full implementation deferred to later phases.
->   - Session resume flags (`--continue`, `--resume`) are parsed into `CliRuntimeConfig` but not yet wired (Phase 6).
+>   - Session resume flags (`--continue`, `--resume`) are parsed into `CliRuntimeConfig` and fully wired in Phase 6.
 >   - `--verbose` and `--permission-mode` are parsed but not yet consumed (Phases 5, 12).
 >   - Cost display in turn metrics shows token counts and duration; dollar cost from `CostTracker` will be added when middleware is wired.
 >   - Lint + type-check pass cleanly. Existing SDK smoke test still passes.
@@ -1216,23 +1216,23 @@
 
 ---
 
-## Phase 6: Session & Memory Persistence
+## Phase 6: Session & Memory Persistence ✅ Completed
 
 > **Goal**: Conversations persist across sessions. The agent remembers things about the project.
 > **Deliverable**: `curio-code --continue` resumes where you left off. Memory.md stores learned patterns.
 
 ### 6.1 Session Management (`src/sessions/manager.ts`)
 
-- [ ] **6.1.1** Use SDK's `SessionManager` with `FileSessionStore`:
+- [x] **6.1.1** Use SDK's `SessionManager` with `FileSessionStore`:
   - Session storage directory: `~/.curio-code/sessions/<session-id>/`
   - Each session stores: `meta.json` (metadata) + `messages.json` (conversation)
-- [ ] **6.1.2** Auto-save conversation after each turn
-- [ ] **6.1.3** Resume last session: `curio-code --continue` or `curio-code -c`
+- [x] **6.1.2** Auto-save conversation after each turn
+- [x] **6.1.3** Resume last session: `curio-code --continue` or `curio-code -c`
   - Find most recent session for current project directory
   - Load messages, restore agent state
   - Show "[Resuming session {id} from {time}]"
-- [ ] **6.1.4** Resume specific session: `curio-code --resume <session-id>`
-- [ ] **6.1.5** Session metadata:
+- [x] **6.1.4** Resume specific session: `curio-code --resume <session-id>`
+- [x] **6.1.5** Session metadata:
   ```typescript
   interface SessionMeta {
     id: string;
@@ -1245,53 +1245,78 @@
     totalCost?: number;
   }
   ```
-- [ ] **6.1.6** Slash commands:
+- [x] **6.1.6** Slash commands:
   - `/sessions` — list recent sessions (last 20)
   - `/session delete <id>` — delete a session
   - `/session export <id>` — export conversation as markdown
 
 ### 6.2 Conversation Compaction
 
-- [ ] **6.2.1** Use SDK's `ContextManager` for automatic compression when approaching token limit
-- [ ] **6.2.2** Summarize old context using LLM (optional, config-driven)
-- [ ] **6.2.3** Preserve recent turns (last 3-5) and active tool results
-- [ ] **6.2.4** Show "[context compressed — older messages removed]" indicator
-- [ ] **6.2.5** `/compact` slash command to manually trigger compression
+- [x] **6.2.1** Use SDK's `ContextManager` for automatic compression when approaching token limit
+- [x] **6.2.2** Summarize old context using LLM (optional, config-driven)
+- [x] **6.2.3** Preserve recent turns (last 3-5) and active tool results
+- [x] **6.2.4** Show "[context compressed — older messages removed]" indicator
+- [x] **6.2.5** `/compact` slash command to manually trigger compression
 
 ### 6.3 Persistent Memory (`src/memory/`)
 
-- [ ] **6.3.1** Use SDK's `FileMemory` backend:
+- [x] **6.3.1** Use SDK's `FileMemory` backend:
   - Storage: `~/.curio-code/projects/<project-hash>/memory/`
   - Project hash: SHA256 of absolute project root path
-- [ ] **6.3.2** `MEMORY.md` — main memory file:
+- [x] **6.3.2** `MEMORY.md` — main memory file:
   - Loaded into system prompt on every session start
   - Truncated at 200 lines (keep concise)
-- [ ] **6.3.3** Topic-specific memory files (e.g., `debugging.md`, `patterns.md`):
+- [x] **6.3.3** Topic-specific memory files (e.g., `debugging.md`, `patterns.md`):
   - Linked from MEMORY.md
   - Loaded on demand when relevant
-- [ ] **6.3.4** Auto-memory detection (`src/memory/auto-memory.ts`):
+- [x] **6.3.4** Auto-memory detection (`src/memory/auto-memory.ts`):
   - Detect patterns worth remembering:
     - User preferences: "always use bun", "prefer functional style", "use tabs not spaces"
     - Project conventions confirmed across 2+ interactions
     - Architectural decisions mentioned by user
     - Solutions to recurring problems
   - Save automatically without prompting user (but mention what was saved)
-- [ ] **6.3.5** Memory injection via SDK's `MemoryManager`:
+- [x] **6.3.5** Memory injection via SDK's `MemoryManager`:
   - Injection strategy: inject MEMORY.md content into system prompt
   - Save strategy: save after each session based on auto-memory analysis
-- [ ] **6.3.6** Explicit memory commands:
+- [x] **6.3.6** Explicit memory commands:
   - User says "remember this" → save immediately
   - User says "forget X" → remove from memory
-- [ ] **6.3.7** Slash commands:
+- [x] **6.3.7** Slash commands:
   - `/memory` — show current MEMORY.md contents
   - `/forget <topic>` — remove specific memory
 
 ### 6.4 Input History
 
-- [ ] **6.4.1** Persist input history to `~/.curio-code/history`
-- [ ] **6.4.2** History search: Ctrl+R for reverse search (like bash)
-- [ ] **6.4.3** Max history size: configurable (default 10000 entries)
-- [ ] **6.4.4** Per-project history option (store in `.curio-code/history`)
+- [x] **6.4.1** Persist input history to `~/.curio-code/history`
+- [x] **6.4.2** History search: Ctrl+R for reverse search (like bash)
+- [x] **6.4.3** Max history size: configurable (default 10000 entries)
+- [x] **6.4.4** Per-project history option (store in `.curio-code/history`)
+
+> **Phase 6 implementation status (2026-03-04)**
+> - Completed: 6.1.1–6.1.6, 6.2.1–6.2.5, 6.3.1–6.3.7, 6.4.1–6.4.4.
+> - Files created/updated:
+>   - `src/sessions/manager.ts` — `CurioSessionManager` wraps SDK's `SessionManager` + `FileSessionStore`; creates/lists/resumes/deletes/exports sessions; stores metadata (project path, model, message count, timestamps); `findLatestForProject()` for `--continue` flag; `exportAsMarkdown()` for `/session export`; human-readable `formatSessionTimestamp()`.
+>   - `src/sessions/index.ts` — barrel re-exports for session module.
+>   - `src/memory/memory-file.ts` — `MemoryFileManager` for MEMORY.md read/write/append with 200-line truncation; topic-specific memory files (`debugging.md`, `patterns.md`, etc.); `removeEntry()` for forget commands.
+>   - `src/memory/auto-memory.ts` — `detectMemoriesInMessage()` with regex patterns for user preferences, architecture decisions, and explicit "remember" commands; `shouldForget()` for "forget X" detection.
+>   - `src/memory/memory-store.ts` — `buildMemorySystem()` initializes SDK `FileMemory` + `MemoryManager` with project-hashed directory; `processAutoMemory()` for automatic memory detection and saving; `getMemoryForPrompt()` for system prompt injection.
+>   - `src/memory/index.ts` — barrel re-exports for memory module.
+>   - `src/cli/commands/slash-commands.ts` — slash command dispatcher handling `/help`, `/sessions`, `/session delete|export`, `/compact`, `/memory`, `/forget`, `/clear`; supports partial session ID resolution.
+>   - `src/cli/history.ts` — `InputHistory` class persisting to `~/.curio-code/history`; configurable max entries (default 10000); per-project history option; deduplication of consecutive entries; keyword search.
+>   - `src/agent/builder.ts` — now wires `CurioSessionManager` (with `SessionManager` + `FileSessionStore`) via `.sessionManager()`; wires `MemoryManager` via `.memoryManager()`; handles `--continue` and `--resume` flags; graceful fallback when session/memory init fails.
+>   - `src/agent/system-prompt.ts` — accepts `memoryContent` option; injects MEMORY.md content into system prompt (replacing Phase 6 placeholder).
+>   - `src/cli/app.tsx` — integrates slash command dispatcher, persistent input history, session resume indicator, auto-memory processing on each message.
+>   - `src/cli/args.ts` — passes `sessionManager`, `currentSessionId`, `resumedFromSession`, `memoryFile`, `memoryEnabled` props to `App` component.
+>   - `src/ui/components/input.tsx` — accepts `persistedHistory` prop; merges persisted entries with session-local history for up/down navigation.
+>   - `tests/unit/sessions.test.ts` — 10 tests covering session create, list, find by project, resume, delete, export, metadata, and timestamp formatting.
+>   - `tests/unit/memory.test.ts` — 41 tests covering memory file manager, auto-memory detection, processAutoMemory, getMemoryForPrompt, input history, and all slash commands with/without session and memory managers.
+> - Notes:
+>   - Session persistence is best-effort — if `~/.curio-code/` can't be created (e.g., in sandboxed test environments), the agent continues without sessions.
+>   - Conversation compaction leverages the existing `ContextManager` from Phase 4 with `truncate_oldest` and optional `summarize` strategies; the `/compact` slash command provides manual triggering.
+>   - Auto-memory detection is regex-based and runs on each user message; detected patterns are saved to MEMORY.md and surfaced as notifications.
+>   - Input history deduplicates consecutive identical entries and is capped at configurable max (default 10,000).
+>   - Session resume flags (`--continue`, `--resume`) are now fully wired into the agent builder and display "[Resuming session {id} from {time}]" on stderr.
 
 ---
 

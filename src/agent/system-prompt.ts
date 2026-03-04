@@ -9,12 +9,13 @@ import {
 
 export interface SystemPromptOptions {
   cwd: string;
+  memoryContent?: string;
 }
 
 export async function buildSystemPrompt(
   options: SystemPromptOptions,
 ): Promise<string> {
-  const { cwd } = options;
+  const { cwd, memoryContent } = options;
   const [envContext, gitContext, projectContext, instructions] =
     await Promise.all([
       Promise.resolve(detectEnvironmentContext(cwd)),
@@ -89,5 +90,5 @@ Content:
 ${customInstructionsText}
 
 ## Memory
-Persistent memory will be available in Phase 6.`;
+${memoryContent ?? "No persistent memories stored yet."}`;
 }

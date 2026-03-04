@@ -180,8 +180,16 @@ export async function runCli(argv: string[] = process.argv): Promise<void> {
       process.exit(1);
     }
 
-    const { agent, modelDisplayName, providerDisplayName, contextBudgetLabel } =
-      agentResult;
+    const {
+      agent,
+      modelDisplayName,
+      providerDisplayName,
+      contextBudgetLabel,
+      sessionManager,
+      currentSessionId,
+      resumedFromSession,
+      memoryFile,
+    } = agentResult;
 
     try {
       if (runtimeConfig.interactive) {
@@ -192,10 +200,13 @@ export async function runCli(argv: string[] = process.argv): Promise<void> {
             modelDisplayName,
             providerDisplayName,
             contextBudgetLabel,
+            sessionManager,
+            currentSessionId,
+            resumedFromSession,
+            memoryFile,
+            memoryEnabled: runtimeConfig.memoryEnabled,
           }),
           {
-            // Let the app handle Ctrl+C so we can interrupt active generation
-            // instead of immediately exiting the process.
             exitOnCtrlC: false,
           },
         );

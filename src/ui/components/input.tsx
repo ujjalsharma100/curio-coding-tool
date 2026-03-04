@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Box, Text, useInput } from "ink";
 import type { Theme } from "../theme.js";
 
@@ -6,22 +6,38 @@ export interface InputProps {
   readonly theme: Theme;
   readonly disabled?: boolean;
   readonly onSubmit: (value: string) => void;
+  readonly persistedHistory?: string[];
 }
 
 /**
  * Simple input component:
  *
  * - Enter submits.
- * - Up/Down arrow keys move the cursor through the local history buffer.
+ * - Up/Down arrow keys move the cursor through the local + persisted history buffer.
  */
 export function Input({
   theme,
   disabled,
   onSubmit,
+  persistedHistory,
 }: InputProps): JSX.Element {
   const [value, setValue] = useState("");
   const [history, setHistory] = useState<string[]>([]);
   const [, setHistoryIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (persistedHistory && persistedHistory.length > 0) {
+      setHistory((prev) => {
+        const combined = [...persistedHistory];
+        for (const item of prev) {
+          if (!combined.includes(item)) {
+            combined.push(item);
+          }
+        }
+        return combined;
+      });
+    }
+  }, [persistedHistory]);
 
   const submit = useCallback(() => {
     const trimmed = value.trim();
@@ -98,4 +114,3 @@ export function Input({
     </Box>
   );
 }
-

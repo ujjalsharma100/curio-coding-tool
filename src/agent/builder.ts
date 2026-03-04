@@ -14,6 +14,13 @@ import {
   CliPermissionHandler,
   AutoAllowHandler,
 } from "../permissions/index.js";
+import { CurioSessionManager } from "../sessions/manager.js";
+import {
+  buildMemorySystem,
+  getMemoryForPrompt,
+  type CurioMemorySystem,
+} from "../memory/index.js";
+import type { MemoryFileManager } from "../memory/memory-file.js";
 
 export interface BuildAgentResult {
   agent: Agent;
@@ -23,6 +30,10 @@ export interface BuildAgentResult {
   providerDisplayName: string;
   contextBudgetLabel: string;
   permissionMode: PermissionMode;
+  sessionManager?: CurioSessionManager;
+  currentSessionId?: string;
+  resumedFromSession?: string;
+  memoryFile?: MemoryFileManager;
 }
 
 export async function buildAgent(
@@ -33,15 +44,70 @@ export async function buildAgent(
     provider: config.provider,
   });
 
-  // Temporary compatibility: Ollama's current tools JSON Schema support is
-  // stricter than other providers and rejects the auto-generated schemas from
-  // our Zod-based tools. Until the SDK normalizes schemas specifically for
-  // Ollama, we avoid registering tools when using an Ollama model so that
-  // basic chat still works without tool calls.
   const toolsForProvider =
     resolved.providerName === "ollama" ? [] : phaseTwoTools;
 
-  const systemPrompt = await buildSystemPrompt({ cwd: process.cwd() });
+  const cwd = process.cwd();
+
+  // Session management (best-effort — tests may run without fs access to ~/.curio-code)
+  let sessionManager: CurioSessionManager | undefined;
+  let currentSessionId: string | undefined;
+  let resumedFromSession: string | undefined;
+
+  try {
+    sessionManager = new CurioSessionManager();
+    await CurioSessionManager.ensureSessionsDir();
+
+    if (config.resumeSessionId) {
+      try {
+        const { session } = await sessionManager.resumeSession(config.resumeSessionId);
+        currentSessionId = session.id;
+        resumedFromSession = session.id;
+        const time = sessionManager.formatSessionTimestamp(session);
+        process.stderr.write(`[Resuming session ${session.id.slice(0, 8)} from ${time}]\n`);
+      } catch {
+        process.stderr.write(`Session not found: ${config.resumeSessionId}. Starting new session.\n`);
+      }
+    } else if (config.continueLastSession) {
+      const latest = await sessionManager.findLatestForProject(cwd);
+      if (latest) {
+        currentSessionId = latest.id;
+        resumedFromSession = latest.id;
+        const time = sessionManager.formatSessionTimestamp(latest);
+        process.stderr.write(`[Resuming session ${latest.id.slice(0, 8)} from ${time}]\n`);
+      } else {
+        process.stderr.write("[No previous session found. Starting new session.]\n");
+      }
+    }
+
+    if (!currentSessionId) {
+      const { session } = await sessionManager.createSession(cwd, resolved.model);
+      currentSessionId = session.id;
+    }
+  } catch {
+    // Session persistence unavailable — continue without it
+    sessionManager = undefined;
+  }
+
+  // Memory system
+  let memorySystem: CurioMemorySystem | undefined;
+  let memoryFile: MemoryFileManager | undefined;
+  let memoryPromptContent: string | undefined;
+
+  if (config.memoryEnabled) {
+    try {
+      memorySystem = await buildMemorySystem(cwd);
+      memoryFile = memorySystem.memoryFile;
+      memoryPromptContent = await getMemoryForPrompt(memorySystem.memoryFile);
+    } catch {
+      process.stderr.write("Warning: Failed to initialize memory system.\n");
+    }
+  }
+
+  const systemPrompt = await buildSystemPrompt({
+    cwd,
+    memoryContent: memoryPromptContent,
+  });
   const contextWindow = buildContextWindowRuntime(resolved.model);
 
   const mode: PermissionMode = config.permissionMode ?? "ask";
@@ -53,7 +119,7 @@ export async function buildAgent(
 
   const { policy } = buildPermissionSystem({
     mode,
-    projectRoot: process.cwd(),
+    projectRoot: cwd,
   });
 
   const humanInput = mode === "auto"
@@ -71,6 +137,17 @@ export async function buildAgent(
     .permissions(policy)
     .humanInput(humanInput);
 
+  if (sessionManager) {
+    builder.sessionManager(sessionManager.getSDKManager());
+  }
+
+  // Skip MemoryManager for Ollama — its auto-registered tools use Zod schemas
+  // that Ollama's strict JSON Schema parser rejects. Memory file injection into
+  // the system prompt still works; only the agent-callable memory tools are skipped.
+  if (memorySystem && resolved.providerName !== "ollama") {
+    builder.memoryManager(memorySystem.memoryManager);
+  }
+
   const agent = builder.build();
 
   return {
@@ -81,5 +158,9 @@ export async function buildAgent(
     providerDisplayName: resolved.providerDisplayName,
     contextBudgetLabel: buildContextBudgetLabel(contextWindow.config),
     permissionMode: mode,
+    sessionManager,
+    currentSessionId,
+    resumedFromSession,
+    memoryFile,
   };
 }
