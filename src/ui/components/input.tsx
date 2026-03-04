@@ -9,10 +9,9 @@ export interface InputProps {
 }
 
 /**
- * Simple multi-line input component:
+ * Simple input component:
  *
- * - Enter submits when not holding Shift.
- * - Shift+Enter inserts a newline.
+ * - Enter submits.
  * - Up/Down arrow keys move the cursor through the local history buffer.
  */
 export function Input({
@@ -38,11 +37,7 @@ export function Input({
       if (disabled) return;
 
       if (key.return) {
-        if (key.shift) {
-          setValue((prev) => `${prev}\n`);
-        } else {
-          submit();
-        }
+        submit();
         return;
       }
 
@@ -97,7 +92,7 @@ export function Input({
       </Box>
       <Box marginTop={0}>
         <Text color={theme.muted}>
-          Enter to send · Shift+Enter for newline · Ctrl+C to interrupt
+          Enter to send · Ctrl+C to interrupt
         </Text>
       </Box>
     </Box>

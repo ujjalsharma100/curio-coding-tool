@@ -192,6 +192,11 @@ export async function runCli(argv: string[] = process.argv): Promise<void> {
             modelDisplayName,
             providerDisplayName,
           }),
+          {
+            // Let the app handle Ctrl+C so we can interrupt active generation
+            // instead of immediately exiting the process.
+            exitOnCtrlC: false,
+          },
         );
         await inkApp.waitUntilExit();
       } else if (runtimeConfig.prompt) {

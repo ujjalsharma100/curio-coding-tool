@@ -20,13 +20,21 @@ export async function buildAgent(
     provider: config.provider,
   });
 
+  // Temporary compatibility: Ollama's current tools JSON Schema support is
+  // stricter than other providers and rejects the auto-generated schemas from
+  // our Zod-based tools. Until the SDK normalizes schemas specifically for
+  // Ollama, we avoid registering tools when using an Ollama model so that
+  // basic chat still works without tool calls.
+  const toolsForProvider =
+    resolved.providerName === "ollama" ? [] : phaseTwoTools;
+
   const systemPrompt = buildSystemPrompt({ cwd: process.cwd() });
 
   const agent = Agent.builder()
     .model(resolved.model)
     .llmClient(resolved.llmClient)
     .systemPrompt(systemPrompt)
-    .tools(phaseTwoTools)
+    .tools(toolsForProvider)
     .maxIterations(config.maxTurns ?? 100)
     .agentName("curio-code")
     .build();

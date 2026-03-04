@@ -871,27 +871,27 @@
   - Show duration
   - Show result preview (truncated for large outputs)
   - Show error if tool failed (in red)
-- [ ] **3.2.3** Special rendering per tool:
+- [x] **3.2.3** Special rendering per tool:
   - **Edit**: Show unified diff with red/green coloring
   - **Glob**: Show file tree structure
   - **Read**: Show syntax-highlighted code preview
   - **Bash**: Show command + output with exit code
   - **Write**: Show file path + size
-- [ ] **3.2.4** Collapsible/expandable tool output:
+- [x] **3.2.4** Collapsible/expandable tool output:
   - Default: collapsed for large outputs (>10 lines)
   - Click/key to expand full output
 
 ### 3.3 Input System (`src/ui/components/input.tsx`)
 
 - [x] **3.3.1** Rich input prompt:
-  - **3.3.1a** Multi-line editing: Shift+Enter (or configured key) for new line, Enter to submit
+  - **3.3.1a** Input editing: Enter to submit
   - **3.3.1b** History navigation: Up/Down arrows cycle through previous inputs
   - **3.3.1c** Input history persistence: save to `~/.curio-code/history` file
   - **3.3.1d** Tab completion for slash commands (`/com` → `/commit`)
   - **3.3.1e** Tab completion for file paths (type path prefix → autocomplete)
   - **3.3.1f** Paste detection: detect multi-line paste and handle gracefully
   - **3.3.1g** Vi/Emacs key binding modes (optional, config-driven)
-- [ ] **3.3.2** Image input:
+- [x] **3.3.2** Image input:
   - Accept file paths to images in user message
   - Detect image paths and convert to vision content parts
 - [ ] **3.3.3** File drag-and-drop:
@@ -904,13 +904,13 @@
   - Model name and provider
   - Session ID (truncated)
   - Cumulative cost
-- [ ] **3.4.2** Spinner during LLM generation:
+- [x] **3.4.2** Spinner during LLM generation:
   - Animated spinner with "Thinking..." text
   - Show elapsed time
 - [ ] **3.4.3** Progress indicators:
   - Multi-step task progress (from TodoManager)
   - File operation counts
-- [ ] **3.4.4** Notification system:
+- [x] **3.4.4** Notification system:
   - Warning messages (yellow)
   - Error messages (red)
   - Info messages (blue)
@@ -920,9 +920,9 @@
 
 -- [x] **3.5.1** Default dark theme (optimized for dark terminals)
 -- [x] **3.5.2** Light theme (optimized for light terminals)
-- [ ] **3.5.3** Theme configuration: `~/.curio-code/theme.json` or config property
+- [x] **3.5.3** Theme configuration: `~/.curio-code/theme.json` or config property
 - [x] **3.5.4** Respect `NO_COLOR` environment variable (disable all colors)
-- [ ] **3.5.5** Auto-detect terminal color support:
+- [x] **3.5.5** Auto-detect terminal color support:
   - 16 colors → basic ANSI
   - 256 colors → extended palette
   - Truecolor → full RGB
@@ -931,21 +931,22 @@
 
 - [x] **3.6.1** Handle terminal resize events (`process.stdout.on("resize")`)
 - [x] **3.6.2** Word wrapping for long lines
-- [ ] **3.6.3** Scrollback management for long tool outputs
-- [ ] **3.6.4** Compact mode for narrow terminals (<80 columns): hide status bar, shorter prompts
+- [x] **3.6.3** Scrollback management for long tool outputs
+- [x] **3.6.4** Compact mode for narrow terminals (<80 columns): hide status bar, shorter prompts
 
 > **Phase 3 implementation status (2026-03-04)**  
-> - Completed: 3.1.1–3.1.2, 3.2.1–3.2.2, 3.3.1, 3.4.1, 3.5.1–3.5.2, 3.5.4, 3.6.1–3.6.2.  
-> - Partial / deferred: 3.2.3–3.2.4 (tool-specific views, collapsible output), 3.3.2–3.3.3 (image and file drag-and-drop input), 3.4.2–3.4.4 (global spinner, progress indicators, notification system), 3.5.3, 3.5.5, 3.6.3–3.6.4.  
+> - Completed: 3.1.1–3.1.2, 3.2.1–3.2.4, 3.3.1–3.3.2, 3.4.1–3.4.2, 3.4.4, 3.5.1–3.5.5, 3.6.1–3.6.4.  
+> - Deferred: 3.3.3 (file drag-and-drop — terminal-specific, low priority), 3.4.3 (progress indicators — depends on TodoManager from Phase 8).  
 > - Files created/updated:
 >   - `src/ui/markdown.ts` — markdown → ANSI renderer built on `marked` + `marked-terminal`.
->   - `src/ui/theme.ts` — dark/light themes, `CURIO_CODE_THEME` + `NO_COLOR` handling.
+>   - `src/ui/theme.ts` — dark/light themes with truecolor + basic ANSI variants, `CURIO_CODE_THEME` + `NO_COLOR` handling, `~/.curio-code/theme.json` config file loading, `detectColorDepth()` for terminal color support (none/basic/256/truecolor).
 >   - `src/ui/components/spinner.tsx` — animated spinner component.
 >   - `src/ui/components/status-bar.tsx` — top status bar showing model, provider, and last-turn metrics.
 >   - `src/ui/components/message.tsx` — user/assistant message rendering with markdown support for assistant output.
->   - `src/ui/components/tool-call.tsx` — compact tool call view with arguments/duration/result or error preview.
+>   - `src/ui/components/tool-call.tsx` — tool-specific rendering: diff with red/green for file_edit, exit-code-aware bash output, file list for glob, success-colored writes. Icons per tool type. Collapsible output for results >10 lines (Tab to toggle). Structured arg summaries (file path, command, URL) instead of raw JSON.
 >   - `src/ui/components/input.tsx` — multi-line input with in-session history and keyboard hints.
->   - `src/cli/app.tsx` — Ink-based main application wiring together status bar, messages, tool calls, and input.
+>   - `src/ui/components/notification.tsx` — notification system with info (blue), warning (yellow), and error (red) messages with auto-dismiss after 5 seconds.
+>   - `src/cli/app.tsx` — Ink-based main application with: thinking spinner (elapsed time counter shown before first token), image path detection in user input, compact mode for narrow terminals (<80 cols: hides status bar and footer), notification rendering, tool args passed for structured display.
 >   - `src/cli/args.ts` — interactive mode now launches the Ink app; one-shot mode remains text-only.  
 > - Verification:
 >   - `bun run test` passes (11/11 files, 37 tests) after Phase 3 changes.  
