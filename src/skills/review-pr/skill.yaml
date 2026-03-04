@@ -1,0 +1,3 @@
+name: review-pr
+description: Review a pull request by analyzing changes, identifying issues, and providing constructive feedback.
+command: /review-pr

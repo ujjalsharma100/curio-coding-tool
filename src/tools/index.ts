@@ -7,6 +7,11 @@ import { grepTool } from "./grep.js";
 import { notebookEditTool } from "./notebook-edit.js";
 import { webFetchTool } from "./web-fetch.js";
 import { webSearchTool } from "./web-search.js";
+import { screenshotTool } from "./vision.js";
+
+export { createAgentSpawnTool, createTaskOutputTool, SubagentTaskRegistry } from "./agent-spawn.js";
+export { screenshotTool } from "./vision.js";
+export { isSupportedImagePath, detectImagePathsInText, readImageAsBase64, isVisionCapableModel } from "./vision.js";
 
 export const phaseTwoTools = [
   fileReadTool,
@@ -19,4 +24,15 @@ export const phaseTwoTools = [
   webFetchTool,
   webSearchTool,
   notebookEditTool,
+  screenshotTool,
 ];
+
+export const readOnlyTools = [
+  fileReadTool,
+  globTool,
+  grepTool,
+  webFetchTool,
+  webSearchTool,
+];
+
+export const allTools = phaseTwoTools;

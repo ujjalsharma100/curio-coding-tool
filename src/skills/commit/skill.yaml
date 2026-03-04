@@ -1,0 +1,3 @@
+name: commit
+description: Create a well-crafted git commit by analyzing changes, drafting a message, and verifying the result.
+command: /commit

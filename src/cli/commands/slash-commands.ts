@@ -7,6 +7,12 @@ import {
   getProviderDisplayName,
   detectAvailableProviders,
 } from "../../agent/provider-config.js";
+import type { TodoManager } from "../../todos/index.js";
+import type { PlanStateRef } from "../../plan/plan-tools.js";
+import { approvePlan, rejectPlan, exitPlanMode } from "../../plan/index.js";
+import type { SubagentTaskRegistry } from "../../tools/agent-spawn.js";
+import type { McpBridgeManager } from "../../mcp/index.js";
+import { addMcpServerToConfig, removeMcpServerFromConfig } from "../../mcp/index.js";
 
 export interface SlashCommandContext {
   sessionManager?: CurioSessionManager;
@@ -15,6 +21,10 @@ export interface SlashCommandContext {
   currentModel?: string;
   currentProvider?: string;
   onCompact?: () => Promise<string>;
+  todoManager?: TodoManager;
+  planStateRef?: PlanStateRef;
+  subagentRegistry?: SubagentTaskRegistry;
+  mcpBridgeManager?: McpBridgeManager;
 }
 
 export interface SlashCommandResult {
@@ -63,6 +73,18 @@ export async function handleSlashCommand(
     case "/clear":
       return { handled: true, output: "__CLEAR__" };
 
+    case "/tasks":
+      return handleTasks(ctx);
+
+    case "/task":
+      return handleTask(parts.slice(1), ctx);
+
+    case "/plan":
+      return handlePlan(parts.slice(1), ctx);
+
+    case "/mcp":
+      return handleMcp(parts.slice(1), ctx);
+
     default:
       return {
         handled: false,
@@ -84,6 +106,16 @@ function formatHelp(): string {
     "  /compact           — Manually trigger context compression",
     "  /memory            — Show current MEMORY.md contents",
     "  /forget <topic>    — Remove specific memory",
+    "  /tasks             — List all tasks with status",
+    "  /task <id>         — Show task details / check background task",
+    "  /plan              — Show plan mode status",
+    "  /plan approve      — Approve submitted plan",
+    "  /plan reject       — Reject submitted plan",
+    "  /mcp               — List MCP servers and tools",
+    "  /mcp list          — List MCP servers and tools",
+    "  /mcp add <name> <cmd> [args] — Add MCP server to config",
+    "  /mcp remove <name> — Remove MCP server from config",
+    "  /mcp restart <name> — Restart MCP server",
     "  /clear             — Clear the screen",
   ].join("\n");
 }
@@ -328,4 +360,254 @@ function handleModelAliases(): SlashCommandResult {
   lines.push("", "Usage: curio-code --model <alias>");
 
   return { handled: true, output: lines.join("\n") };
+}
+
+// ---------------------------------------------------------------------------
+// /tasks — list all tasks
+// ---------------------------------------------------------------------------
+
+function handleTasks(ctx: SlashCommandContext): SlashCommandResult {
+  if (!ctx.todoManager) {
+    return { handled: true, error: "Task system not available." };
+  }
+  return { handled: true, output: ctx.todoManager.summary() };
+}
+
+// ---------------------------------------------------------------------------
+// /task <id> — show task details or background subagent output
+// ---------------------------------------------------------------------------
+
+function handleTask(
+  args: string[],
+  ctx: SlashCommandContext,
+): SlashCommandResult {
+  const id = args[0];
+  if (!id) {
+    return { handled: true, error: "Usage: /task <id>" };
+  }
+
+  if (ctx.todoManager) {
+    const todo = ctx.todoManager.get(id);
+    if (todo) {
+      return {
+        handled: true,
+        output: JSON.stringify(todo, null, 2),
+      };
+    }
+  }
+
+  if (ctx.subagentRegistry) {
+    const task = ctx.subagentRegistry.get(id);
+    if (task) {
+      const lines = [
+        `Task: ${task.id}`,
+        `Type: ${task.subagentType}`,
+        `Status: ${task.status}`,
+        `Description: ${task.description}`,
+        `Started: ${task.startedAt}`,
+      ];
+      if (task.completedAt) lines.push(`Completed: ${task.completedAt}`);
+      if (task.result) lines.push("", "Output:", task.result);
+      if (task.error) lines.push("", `Error: ${task.error}`);
+      return { handled: true, output: lines.join("\n") };
+    }
+  }
+
+  return { handled: true, error: `Task not found: ${id}` };
+}
+
+// ---------------------------------------------------------------------------
+// /plan — plan mode status and control
+// ---------------------------------------------------------------------------
+
+function handlePlan(
+  args: string[],
+  ctx: SlashCommandContext,
+): SlashCommandResult {
+  if (!ctx.planStateRef) {
+    return { handled: true, error: "Plan mode not available." };
+  }
+
+  const sub = args[0]?.toLowerCase();
+  const state = ctx.planStateRef.current;
+
+  if (!sub) {
+    const lines = [`Plan mode status: ${state.status}`];
+    if (state.planContent) {
+      lines.push("", "Current plan:", state.planContent);
+    }
+    if (state.restrictedTools.length > 0) {
+      lines.push("", `Restricted tools: ${state.restrictedTools.join(", ")}`);
+    }
+    return { handled: true, output: lines.join("\n") };
+  }
+
+  switch (sub) {
+    case "approve": {
+      if (state.status !== "awaiting_approval") {
+        return {
+          handled: true,
+          error: `Cannot approve: plan status is "${state.status}" (need "awaiting_approval").`,
+        };
+      }
+      ctx.planStateRef.current = approvePlan(state);
+      return {
+        handled: true,
+        output: "Plan approved. Agent now has full tool access to execute the plan.",
+      };
+    }
+    case "reject": {
+      if (state.status !== "awaiting_approval") {
+        return {
+          handled: true,
+          error: `Cannot reject: plan status is "${state.status}" (need "awaiting_approval").`,
+        };
+      }
+      ctx.planStateRef.current = rejectPlan(state);
+      return {
+        handled: true,
+        output: "Plan rejected. Agent will revise (still in plan mode with read-only tools).",
+      };
+    }
+    case "cancel": {
+      ctx.planStateRef.current = exitPlanMode(state);
+      return {
+        handled: true,
+        output: "Plan mode cancelled. Returned to normal execution.",
+      };
+    }
+    default:
+      return {
+        handled: true,
+        error: `Unknown /plan subcommand: ${sub}. Use: /plan | /plan approve | /plan reject | /plan cancel`,
+      };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// /mcp — MCP server management
+// ---------------------------------------------------------------------------
+
+async function handleMcp(
+  args: string[],
+  ctx: SlashCommandContext,
+): Promise<SlashCommandResult> {
+  const sub = args[0]?.toLowerCase();
+
+  if (!sub || sub === "list") {
+    return handleMcpList(ctx);
+  }
+
+  switch (sub) {
+    case "add":
+      return handleMcpAdd(args.slice(1));
+    case "remove":
+      return handleMcpRemove(args.slice(1));
+    case "restart":
+      return handleMcpRestart(args.slice(1), ctx);
+    default:
+      return {
+        handled: true,
+        error: `Unknown /mcp subcommand: ${sub}. Use: /mcp list | /mcp add | /mcp remove | /mcp restart`,
+      };
+  }
+}
+
+async function handleMcpList(
+  ctx: SlashCommandContext,
+): Promise<SlashCommandResult> {
+  if (!ctx.mcpBridgeManager) {
+    return { handled: true, output: "No MCP servers configured." };
+  }
+
+  const statuses = await ctx.mcpBridgeManager.getStatus();
+  if (statuses.length === 0) {
+    return { handled: true, output: "No MCP servers configured." };
+  }
+
+  const lines = ["MCP Servers:", ""];
+  for (const s of statuses) {
+    const icon = s.connected ? "✓" : "✗";
+    lines.push(`  ${icon} ${s.name} (${s.connected ? "connected" : "disconnected"})`);
+    if (s.error) {
+      lines.push(`    Error: ${s.error}`);
+    }
+    if (s.tools.length > 0) {
+      lines.push(`    Tools (${s.toolCount}): ${s.tools.join(", ")}`);
+    }
+  }
+
+  return { handled: true, output: lines.join("\n") };
+}
+
+async function handleMcpAdd(
+  args: string[],
+): Promise<SlashCommandResult> {
+  const name = args[0];
+  const command = args[1];
+  const restArgs = args.slice(2);
+
+  if (!name || !command) {
+    return {
+      handled: true,
+      error: "Usage: /mcp add <name> <command> [args...]",
+    };
+  }
+
+  try {
+    await addMcpServerToConfig(name, command, restArgs);
+    return {
+      handled: true,
+      output: `Added MCP server "${name}" to .curio-code/mcp.json. Restart curio-code to connect.`,
+    };
+  } catch (err) {
+    return {
+      handled: true,
+      error: `Failed to add server: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
+async function handleMcpRemove(
+  args: string[],
+): Promise<SlashCommandResult> {
+  const name = args[0];
+  if (!name) {
+    return { handled: true, error: "Usage: /mcp remove <name>" };
+  }
+
+  const removed = await removeMcpServerFromConfig(name);
+  if (removed) {
+    return {
+      handled: true,
+      output: `Removed MCP server "${name}" from .curio-code/mcp.json.`,
+    };
+  }
+  return {
+    handled: true,
+    error: `MCP server "${name}" not found in project config.`,
+  };
+}
+
+async function handleMcpRestart(
+  args: string[],
+  ctx: SlashCommandContext,
+): Promise<SlashCommandResult> {
+  const name = args[0];
+  if (!name) {
+    return { handled: true, error: "Usage: /mcp restart <name>" };
+  }
+
+  if (!ctx.mcpBridgeManager) {
+    return { handled: true, error: "No MCP bridge available." };
+  }
+
+  const ok = await ctx.mcpBridgeManager.restartServer(name);
+  if (ok) {
+    return { handled: true, output: `Restarted MCP server "${name}".` };
+  }
+  return {
+    handled: true,
+    error: `MCP server "${name}" not found.`,
+  };
 }

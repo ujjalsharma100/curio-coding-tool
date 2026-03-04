@@ -2,7 +2,7 @@ import { Agent } from "curio-agent-sdk";
 import type { CliRuntimeConfig } from "../cli/args.js";
 import { resolveProvider } from "./provider-config.js";
 import { buildSystemPrompt } from "./system-prompt.js";
-import { phaseTwoTools } from "../tools/index.js";
+import { phaseTwoTools, readOnlyTools } from "../tools/index.js";
 import {
   buildContextBudgetLabel,
   buildContextWindowRuntime,
@@ -21,6 +21,11 @@ import {
   type CurioMemorySystem,
 } from "../memory/index.js";
 import type { MemoryFileManager } from "../memory/memory-file.js";
+import { TodoManager, createTodoTools } from "../todos/index.js";
+import { createPlanState } from "../plan/index.js";
+import { createPlanTools, type PlanStateRef } from "../plan/plan-tools.js";
+import { createSkillRegistry } from "../skills/index.js";
+import { loadMergedMcpConfig, McpBridgeManager } from "../mcp/index.js";
 
 export interface BuildAgentResult {
   agent: Agent;
@@ -34,6 +39,9 @@ export interface BuildAgentResult {
   currentSessionId?: string;
   resumedFromSession?: string;
   memoryFile?: MemoryFileManager;
+  todoManager?: TodoManager;
+  planStateRef?: PlanStateRef;
+  mcpBridgeManager?: McpBridgeManager;
 }
 
 export async function buildAgent(
@@ -128,11 +136,42 @@ export async function buildAgent(
     ? new AutoAllowHandler()
     : new CliPermissionHandler();
 
+  // Phase 8: Todo system
+  const todoManager = new TodoManager();
+  const todoTools = resolved.providerName === "ollama" ? [] : createTodoTools(todoManager);
+
+  // Phase 8: Plan mode
+  const planStateRef: PlanStateRef = { current: createPlanState() };
+  const planTools = resolved.providerName === "ollama" ? [] : createPlanTools(planStateRef);
+
+  // Phase 8: Skills
+  const skillRegistry = createSkillRegistry(cwd);
+
+  // Phase 9: MCP Integration
+  let mcpBridgeManager: McpBridgeManager | undefined;
+  let mcpTools: Awaited<ReturnType<McpBridgeManager["getTools"]>> = [];
+
+  try {
+    const mcpConfigs = await loadMergedMcpConfig(cwd);
+    if (mcpConfigs.length > 0) {
+      mcpBridgeManager = new McpBridgeManager(mcpConfigs);
+      await mcpBridgeManager.startup();
+      mcpTools = await mcpBridgeManager.getTools();
+      if (mcpTools.length > 0) {
+        process.stderr.write(`[MCP] ${mcpTools.length} tool(s) loaded from ${mcpConfigs.length} server(s)\n`);
+      }
+    }
+  } catch {
+    process.stderr.write("Warning: Failed to initialize MCP servers.\n");
+  }
+
+  const allPhase8Tools = [...todoTools, ...planTools];
+
   const builder = Agent.builder()
     .model(resolved.model)
     .llmClient(resolved.llmClient)
     .systemPrompt(systemPrompt)
-    .tools(toolsForProvider)
+    .tools([...toolsForProvider, ...allPhase8Tools, ...mcpTools])
     .contextManager(contextWindow.manager)
     .maxIterations(config.maxTurns ?? 100)
     .agentName("curio-code")
@@ -150,6 +189,33 @@ export async function buildAgent(
     builder.memoryManager(memorySystem.memoryManager);
   }
 
+  // Phase 8: Subagent configurations
+  if (resolved.providerName !== "ollama") {
+    builder.subagent("explore", {
+      systemPrompt: "Fast codebase exploration agent. Use read-only tools to search and understand code.",
+      tools: readOnlyTools,
+      model: resolved.model,
+      maxIterations: 30,
+    });
+    builder.subagent("plan", {
+      systemPrompt: "Architecture planning agent. Research and design implementation approaches before coding.",
+      tools: [...readOnlyTools],
+      model: resolved.model,
+      maxIterations: 50,
+    });
+    builder.subagent("general", {
+      systemPrompt: "General-purpose coding agent with full tool access.",
+      tools: toolsForProvider,
+      model: resolved.model,
+      maxIterations: 100,
+    });
+  }
+
+  // Phase 8: Register skills
+  for (const skill of skillRegistry.getActiveSkills()) {
+    builder.skill(skill);
+  }
+
   const agent = builder.build();
 
   return {
@@ -164,5 +230,8 @@ export async function buildAgent(
     currentSessionId,
     resumedFromSession,
     memoryFile,
+    todoManager,
+    planStateRef,
+    mcpBridgeManager,
   };
 }

@@ -17,6 +17,9 @@ import { InputHistory } from "./history.js";
 import type { CurioSessionManager } from "../sessions/manager.js";
 import type { MemoryFileManager } from "../memory/memory-file.js";
 import { processAutoMemory } from "../memory/index.js";
+import type { TodoManager } from "../todos/index.js";
+import type { PlanStateRef } from "../plan/plan-tools.js";
+import type { McpBridgeManager } from "../mcp/index.js";
 
 interface AppProps {
   readonly agent: Agent;
@@ -30,6 +33,9 @@ interface AppProps {
   readonly resumedFromSession?: string;
   readonly memoryFile?: MemoryFileManager;
   readonly memoryEnabled?: boolean;
+  readonly todoManager?: TodoManager;
+  readonly planStateRef?: PlanStateRef;
+  readonly mcpBridgeManager?: McpBridgeManager;
 }
 
 interface ConversationMessage {
@@ -92,6 +98,9 @@ export function App({
   resumedFromSession,
   memoryFile,
   memoryEnabled,
+  todoManager,
+  planStateRef,
+  mcpBridgeManager,
 }: AppProps): JSX.Element {
   const theme = getActiveTheme();
   const { exit } = useApp();
@@ -257,6 +266,9 @@ export function App({
     currentModel: model,
     currentProvider: providerName,
     onCompact: async () => "[context compressed — older messages removed]",
+    todoManager,
+    planStateRef,
+    mcpBridgeManager,
   };
 
   const sendMessage = useCallback(

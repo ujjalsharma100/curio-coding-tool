@@ -191,6 +191,9 @@ export async function runCli(argv: string[] = process.argv): Promise<void> {
       currentSessionId,
       resumedFromSession,
       memoryFile,
+      todoManager,
+      planStateRef,
+      mcpBridgeManager,
     } = agentResult;
 
     try {
@@ -209,6 +212,9 @@ export async function runCli(argv: string[] = process.argv): Promise<void> {
             resumedFromSession,
             memoryFile,
             memoryEnabled: runtimeConfig.memoryEnabled,
+            todoManager,
+            planStateRef,
+            mcpBridgeManager,
           }),
           {
             exitOnCtrlC: false,
@@ -229,6 +235,9 @@ export async function runCli(argv: string[] = process.argv): Promise<void> {
         process.exit(1);
       }
     } finally {
+      if (mcpBridgeManager) {
+        await mcpBridgeManager.shutdown();
+      }
       await agent.close();
       process.exit(0);
     }
