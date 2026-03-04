@@ -1,15 +1,15 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import path from "node:path";
 import * as fs from "node:fs/promises";
-import pdfParse from "pdf-parse";
+import { PDFParse } from "pdf-parse";
 import { fileReadTool } from "../../src/tools/file-read.js";
 import { toolSessionState } from "../../src/tools/session-state.js";
 
 vi.mock("pdf-parse", () => ({
-  default: vi.fn(),
+  PDFParse: vi.fn(),
 }));
 
-const mockedPdfParse = pdfParse as unknown as ReturnType<typeof vi.fn>;
+const mockedPdfParse = PDFParse as unknown as ReturnType<typeof vi.fn>;
 
 describe("Phase 2 file read tool", () => {
   const tmpDir = path.join(process.cwd(), "tests", "tmp-file-read");

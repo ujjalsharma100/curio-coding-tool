@@ -84,6 +84,8 @@ describe("Phase 2 notebook_edit tool", () => {
 
     expect(result).toContain("Notebook updated");
     const updated = JSON.parse(await fs.readFile(nbPath, "utf8"));
+    // The notebook JSON structure is not type-safe in this test context.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect(updated.cells.find((cell: any) => cell.id === "cell-2")).toBeUndefined();
   });
 });

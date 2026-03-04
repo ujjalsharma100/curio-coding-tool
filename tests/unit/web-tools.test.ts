@@ -26,6 +26,7 @@ describe("Phase 2 web_fetch tool", () => {
       },
       text: async () => html,
     });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (global as any).fetch = fetchMock;
 
     const url = "https://example.com";
@@ -62,6 +63,7 @@ describe("Phase 2 web_search tool", () => {
         },
       }),
     });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (global as any).fetch = fetchMock;
 
     const result = await webSearchTool.execute({ query: "test" } as never);
@@ -83,6 +85,7 @@ describe("Phase 2 web_search tool", () => {
         ],
       }),
     });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (global as any).fetch = fetchMock;
 
     const result = await webSearchTool.execute({ query: "test" } as never);
@@ -101,6 +104,7 @@ describe("Phase 2 web_search tool", () => {
         results: [{ title: "X", url: "https://x", content: "cx" }],
       }),
     });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (global as any).fetch = fetchMock;
 
     const result = await webSearchTool.execute({ query: "test" } as never);
@@ -113,6 +117,7 @@ describe("Phase 2 web_search tool", () => {
     process.env.SERPER_API_KEY = "";
     process.env.SEARXNG_URL = "";
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (global as any).fetch = vi.fn();
 
     const result = await webSearchTool.execute({ query: "test" } as never);

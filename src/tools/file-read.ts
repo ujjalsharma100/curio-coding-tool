@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import * as pdfParseModule from "pdf-parse";
+import { PDFParse } from "pdf-parse";
 import { createTool } from "curio-agent-sdk";
 import { z } from "zod";
 import { toolSessionState } from "./session-state.js";
@@ -137,10 +137,7 @@ export const fileReadTool = createTool({
 
       if (extension === ".pdf") {
         const pdfBuffer = await fs.readFile(absolutePath);
-        const pdfParseFn =
-          (pdfParseModule as unknown as { default?: (buf: Buffer) => Promise<{ text: string }> })
-            .default ?? (pdfParseModule as unknown as (buf: Buffer) => Promise<{ text: string }>);
-        const parsed = await pdfParseFn(pdfBuffer);
+        const parsed = await PDFParse(pdfBuffer as unknown as Buffer);
         const pageTexts = parsed.text.split("\f");
         let selectedPages = pageTexts;
         if (pages) {

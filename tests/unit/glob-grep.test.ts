@@ -9,8 +9,8 @@ describe("Phase 2 glob tool", () => {
     await fs.mkdir(tmpDir, { recursive: true });
     const fileA = path.join(tmpDir, "a.ts");
     const fileB = path.join(tmpDir, "b.ts");
-    await fs.writeFile(fileA, "a", "utf8");
-    await fs.writeFile(fileB, "b", "utf8");
+    await fs.writeFile(fileA, "export const a = 'a';\n", "utf8");
+    await fs.writeFile(fileB, "export const b = 'b';\n", "utf8");
 
     const result = await globTool.execute({
       pattern: "*.ts",

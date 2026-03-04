@@ -17,3 +17,6 @@ coverage/
 *.swo
 *.tmp
 
+# Test temp directories
+tests/tmp-*/
+

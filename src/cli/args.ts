@@ -1,6 +1,8 @@
 import { Command } from "commander";
+import React from "react";
+import { render } from "ink";
 import { buildAgent } from "../agent/builder.js";
-import { runInteractiveRepl, runOneShotMode } from "./repl.js";
+import { runOneShotMode } from "./repl.js";
 
 type PermissionMode = "ask" | "auto" | "strict";
 
@@ -183,11 +185,15 @@ export async function runCli(argv: string[] = process.argv): Promise<void> {
 
     try {
       if (runtimeConfig.interactive) {
-        process.stdout.write(`\nCurio Code v${VERSION}\n`);
-        process.stdout.write(
-          `Model: ${modelDisplayName} (${providerDisplayName})\n\n`,
+        const { App } = await import("./app.js");
+        const inkApp = render(
+          React.createElement(App, {
+            agent,
+            modelDisplayName,
+            providerDisplayName,
+          }),
         );
-        await runInteractiveRepl(agent);
+        await inkApp.waitUntilExit();
       } else if (runtimeConfig.prompt) {
         if (!runtimeConfig.print) {
           process.stderr.write(

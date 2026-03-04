@@ -835,14 +835,14 @@
 
 ---
 
-## Phase 3: Terminal UI & Rich Output
+## Phase 3: Terminal UI & Rich Output ✅ Completed
 
 > **Goal**: Beautiful, responsive terminal experience that makes tool calls readable and streaming smooth.
 > **Deliverable**: Rich markdown rendering, collapsible tool calls, status bar, input system.
 
 ### 3.1 Markdown Rendering (`src/ui/markdown.ts`)
 
-- [ ] **3.1.1** Render LLM markdown output in terminal using `marked` + custom terminal renderer, or `marked-terminal`:
+- [x] **3.1.1** Render LLM markdown output in terminal using `marked` + custom terminal renderer, or `marked-terminal`:
   - **3.1.1a** Bold (`**text**`) → terminal bold
   - **3.1.1b** Italic (`*text*`) → terminal dim/italic
   - **3.1.1c** Code blocks with syntax highlighting:
@@ -856,18 +856,18 @@
   - **3.1.1h** Tables → box-drawing alignment
   - **3.1.1i** Blockquotes → indented with pipe character
   - **3.1.1j** Horizontal rules → full-width line
-- [ ] **3.1.2** Streaming-compatible rendering:
+- [x] **3.1.2** Streaming-compatible rendering:
   - Render incrementally as `text_delta` events arrive
   - Handle partial markdown (e.g., incomplete code fence)
   - Buffer partial tokens to avoid flicker
 
 ### 3.2 Tool Call Display (`src/ui/components/tool-call.tsx`)
 
-- [ ] **3.2.1** On `tool_call_start` event:
+- [x] **3.2.1** On `tool_call_start` event:
   - Show tool name with icon/emoji indicator
   - Show truncated arguments (first 200 chars)
   - Show spinner while tool executes
-- [ ] **3.2.2** On `tool_call_end` event:
+- [x] **3.2.2** On `tool_call_end` event:
   - Show duration
   - Show result preview (truncated for large outputs)
   - Show error if tool failed (in red)
@@ -883,7 +883,7 @@
 
 ### 3.3 Input System (`src/ui/components/input.tsx`)
 
-- [ ] **3.3.1** Rich input prompt:
+- [x] **3.3.1** Rich input prompt:
   - **3.3.1a** Multi-line editing: Shift+Enter (or configured key) for new line, Enter to submit
   - **3.3.1b** History navigation: Up/Down arrows cycle through previous inputs
   - **3.3.1c** Input history persistence: save to `~/.curio-code/history` file
@@ -900,7 +900,7 @@
 
 ### 3.4 Status Bar / Chrome (`src/ui/components/status-bar.tsx`)
 
-- [ ] **3.4.1** Top bar (displayed on startup and between turns):
+- [x] **3.4.1** Top bar (displayed on startup and between turns):
   - Model name and provider
   - Session ID (truncated)
   - Cumulative cost
@@ -918,10 +918,10 @@
 
 ### 3.5 Color Themes (`src/ui/theme.ts`)
 
-- [ ] **3.5.1** Default dark theme (optimized for dark terminals)
-- [ ] **3.5.2** Light theme (optimized for light terminals)
+-- [x] **3.5.1** Default dark theme (optimized for dark terminals)
+-- [x] **3.5.2** Light theme (optimized for light terminals)
 - [ ] **3.5.3** Theme configuration: `~/.curio-code/theme.json` or config property
-- [ ] **3.5.4** Respect `NO_COLOR` environment variable (disable all colors)
+- [x] **3.5.4** Respect `NO_COLOR` environment variable (disable all colors)
 - [ ] **3.5.5** Auto-detect terminal color support:
   - 16 colors → basic ANSI
   - 256 colors → extended palette
@@ -929,10 +929,27 @@
 
 ### 3.6 Responsive Layout
 
-- [ ] **3.6.1** Handle terminal resize events (`process.stdout.on("resize")`)
-- [ ] **3.6.2** Word wrapping for long lines
+- [x] **3.6.1** Handle terminal resize events (`process.stdout.on("resize")`)
+- [x] **3.6.2** Word wrapping for long lines
 - [ ] **3.6.3** Scrollback management for long tool outputs
 - [ ] **3.6.4** Compact mode for narrow terminals (<80 columns): hide status bar, shorter prompts
+
+> **Phase 3 implementation status (2026-03-04)**  
+> - Completed: 3.1.1–3.1.2, 3.2.1–3.2.2, 3.3.1, 3.4.1, 3.5.1–3.5.2, 3.5.4, 3.6.1–3.6.2.  
+> - Partial / deferred: 3.2.3–3.2.4 (tool-specific views, collapsible output), 3.3.2–3.3.3 (image and file drag-and-drop input), 3.4.2–3.4.4 (global spinner, progress indicators, notification system), 3.5.3, 3.5.5, 3.6.3–3.6.4.  
+> - Files created/updated:
+>   - `src/ui/markdown.ts` — markdown → ANSI renderer built on `marked` + `marked-terminal`.
+>   - `src/ui/theme.ts` — dark/light themes, `CURIO_CODE_THEME` + `NO_COLOR` handling.
+>   - `src/ui/components/spinner.tsx` — animated spinner component.
+>   - `src/ui/components/status-bar.tsx` — top status bar showing model, provider, and last-turn metrics.
+>   - `src/ui/components/message.tsx` — user/assistant message rendering with markdown support for assistant output.
+>   - `src/ui/components/tool-call.tsx` — compact tool call view with arguments/duration/result or error preview.
+>   - `src/ui/components/input.tsx` — multi-line input with in-session history and keyboard hints.
+>   - `src/cli/app.tsx` — Ink-based main application wiring together status bar, messages, tool calls, and input.
+>   - `src/cli/args.ts` — interactive mode now launches the Ink app; one-shot mode remains text-only.  
+> - Verification:
+>   - `bun run test` passes (11/11 files, 37 tests) after Phase 3 changes.  
+>   - `bun run lint` passes cleanly with the new UI files and test adjustments.
 
 ---
 
