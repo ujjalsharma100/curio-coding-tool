@@ -2,6 +2,7 @@ import { Agent } from "curio-agent-sdk";
 import type { CliRuntimeConfig } from "../cli/args.js";
 import { resolveProvider } from "./provider-config.js";
 import { buildSystemPrompt } from "./system-prompt.js";
+import { phaseTwoTools } from "../tools/index.js";
 
 export interface BuildAgentResult {
   agent: Agent;
@@ -25,6 +26,7 @@ export async function buildAgent(
     .model(resolved.model)
     .llmClient(resolved.llmClient)
     .systemPrompt(systemPrompt)
+    .tools(phaseTwoTools)
     .maxIterations(config.maxTurns ?? 100)
     .agentName("curio-code")
     .build();

@@ -21,9 +21,13 @@
   },
   "dependencies": {
     "commander": "^13.0.0",
-    "curio-agent-sdk": "link:../curio-agent-sdk-typescript",
+    "curio-agent-sdk": "file:../curio-agent-sdk-typescript",
+    "fast-glob": "^3.3.3",
+    "ignore": "^7.0.5",
     "ink": "^5.0.0",
+    "pdf-parse": "^2.4.5",
     "react": "^18.3.0",
+    "turndown": "^7.2.2",
     "zod": "^3.24.0"
   },
   "devDependencies": {

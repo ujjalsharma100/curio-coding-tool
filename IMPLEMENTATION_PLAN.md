@@ -577,14 +577,14 @@
 
 ---
 
-## Phase 2: Tool System — File & Code Operations
+## Phase 2: Tool System — File & Code Operations ✅ Completed
 
 > **Goal**: The agent can read, write, search, and execute code. This is the heart of the coding tool.
 > **Deliverable**: Agent can autonomously explore and modify codebases.
 
 ### 2.1 File Read Tool (`src/tools/file-read.ts`)
 
-- [ ] **2.1.1** Create tool with `createTool()` and Zod schema:
+- [x] **2.1.1** Create tool with `createTool()` and Zod schema:
   ```typescript
   parameters: z.object({
     file_path: z.string().describe("Absolute path to the file"),
@@ -592,50 +592,50 @@
     limit: z.number().optional().describe("Number of lines to read"),
   })
   ```
-- [ ] **2.1.2** Read file contents with `fs.readFile()`, convert to string
-- [ ] **2.1.3** Line number display: format as `cat -n` (right-aligned line numbers + tab + content)
-- [ ] **2.1.4** Support `offset` and `limit` for large files:
+- [x] **2.1.2** Read file contents with `fs.readFile()`, convert to string
+- [x] **2.1.3** Line number display: format as `cat -n` (right-aligned line numbers + tab + content)
+- [x] **2.1.4** Support `offset` and `limit` for large files:
   - Default limit: 2000 lines
   - If file exceeds limit, show first `limit` lines + "[truncated — {remaining} more lines]"
-- [ ] **2.1.5** Truncate lines longer than 2000 characters (append `[truncated]`)
-- [ ] **2.1.6** Handle binary files: detect via null bytes in first 512 bytes, return "Binary file, cannot display"
-- [ ] **2.1.7** Handle missing files: return clear error "File not found: {path}"
-- [ ] **2.1.8** Handle permission errors: return "Permission denied: {path}"
-- [ ] **2.1.9** Image file support:
+- [x] **2.1.5** Truncate lines longer than 2000 characters (append `[truncated]`)
+- [x] **2.1.6** Handle binary files: detect via null bytes in first 512 bytes, return "Binary file, cannot display"
+- [x] **2.1.7** Handle missing files: return clear error "File not found: {path}"
+- [x] **2.1.8** Handle permission errors: return "Permission denied: {path}"
+- [x] **2.1.9** Image file support:
   - Detect image extensions (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.svg`)
   - Return image as base64 content part (for vision-capable models)
   - For non-vision models, return "Image file — cannot display (model does not support vision)"
-- [ ] **2.1.10** PDF support:
+- [x] **2.1.10** PDF support:
   - Detect `.pdf` extension
   - Accept optional `pages` parameter (e.g., "1-5", "3", "10-20")
   - Extract text from specified pages using `pdf-parse` or similar
   - Max 20 pages per request
-- [ ] **2.1.11** Jupyter notebook support:
+- [x] **2.1.11** Jupyter notebook support:
   - Detect `.ipynb` extension
   - Parse JSON, render all cells with their outputs
   - Format: `[Cell N - code/markdown]\n{source}\n[Output]\n{outputs}`
-- [ ] **2.1.12** Register tool with appropriate description for the LLM
+- [x] **2.1.12** Register tool with appropriate description for the LLM
 
 ### 2.2 File Write Tool (`src/tools/file-write.ts`)
 
-- [ ] **2.2.1** Create tool with Zod schema:
+- [x] **2.2.1** Create tool with Zod schema:
   ```typescript
   parameters: z.object({
     file_path: z.string().describe("Absolute path to write to"),
     content: z.string().describe("Content to write"),
   })
   ```
-- [ ] **2.2.2** Write content with `fs.writeFile()` (UTF-8)
-- [ ] **2.2.3** Create parent directories if they don't exist (`fs.mkdir({ recursive: true })`)
-- [ ] **2.2.4** Track which files have been read in the session:
+- [x] **2.2.2** Write content with `fs.writeFile()` (UTF-8)
+- [x] **2.2.3** Create parent directories if they don't exist (`fs.mkdir({ recursive: true })`)
+- [x] **2.2.4** Track which files have been read in the session:
   - If overwriting a file that was NOT previously read → warn in output: "Warning: overwriting file that was not read first"
   - If overwriting a file that WAS read → proceed silently
-- [ ] **2.2.5** Return confirmation: "Wrote {n} bytes to {path}"
-- [ ] **2.2.6** Handle errors: permission denied, disk full, invalid path
+- [x] **2.2.5** Return confirmation: "Wrote {n} bytes to {path}"
+- [x] **2.2.6** Handle errors: permission denied, disk full, invalid path
 
 ### 2.3 File Edit Tool (`src/tools/file-edit.ts`)
 
-- [ ] **2.3.1** Create tool with Zod schema:
+- [x] **2.3.1** Create tool with Zod schema:
   ```typescript
   parameters: z.object({
     file_path: z.string().describe("Absolute path to the file"),
@@ -644,34 +644,34 @@
     replace_all: z.boolean().optional().default(false).describe("Replace all occurrences"),
   })
   ```
-- [ ] **2.3.2** Read file, find `old_string` occurrences
-- [ ] **2.3.3** Uniqueness validation:
+- [x] **2.3.2** Read file, find `old_string` occurrences
+- [x] **2.3.3** Uniqueness validation:
   - If `replace_all` is false and `old_string` appears more than once → error: "old_string matches {n} locations. Provide more context to make it unique, or use replace_all: true"
   - If `old_string` not found → error: "old_string not found in file. Check indentation and whitespace."
-- [ ] **2.3.4** Perform replacement, write file back
-- [ ] **2.3.5** Verify `old_string !== new_string` (no-op check)
-- [ ] **2.3.6** Generate and return unified diff output showing the change
-- [ ] **2.3.7** Preserve exact indentation — match whitespace character-for-character
-- [ ] **2.3.8** Require that the file was previously read (enforce via session state tracking)
+- [x] **2.3.4** Perform replacement, write file back
+- [x] **2.3.5** Verify `old_string !== new_string` (no-op check)
+- [x] **2.3.6** Generate and return unified diff output showing the change
+- [x] **2.3.7** Preserve exact indentation — match whitespace character-for-character
+- [x] **2.3.8** Require that the file was previously read (enforce via session state tracking)
 
 ### 2.4 Glob Tool (`src/tools/glob.ts`)
 
-- [ ] **2.4.1** Create tool with Zod schema:
+- [x] **2.4.1** Create tool with Zod schema:
   ```typescript
   parameters: z.object({
     pattern: z.string().describe("Glob pattern (e.g., '**/*.ts', 'src/**/*.tsx')"),
     path: z.string().optional().describe("Directory to search in (defaults to cwd)"),
   })
   ```
-- [ ] **2.4.2** Use `fast-glob` (or `globby`) for pattern matching
-- [ ] **2.4.3** Return matches sorted by modification time (newest first)
-- [ ] **2.4.4** Respect `.gitignore` by default (use `ignore` option or `git ls-files` integration)
-- [ ] **2.4.5** Limit results to prevent context overflow (default: 200 files, show "[N more files...]" if truncated)
-- [ ] **2.4.6** Return one file path per line
+- [x] **2.4.2** Use `fast-glob` (or `globby`) for pattern matching
+- [x] **2.4.3** Return matches sorted by modification time (newest first)
+- [x] **2.4.4** Respect `.gitignore` by default (use `ignore` option or `git ls-files` integration)
+- [x] **2.4.5** Limit results to prevent context overflow (default: 200 files, show "[N more files...]" if truncated)
+- [x] **2.4.6** Return one file path per line
 
 ### 2.5 Grep Tool (`src/tools/grep.ts`)
 
-- [ ] **2.5.1** Create tool with Zod schema:
+- [x] **2.5.1** Create tool with Zod schema:
   ```typescript
   parameters: z.object({
     pattern: z.string().describe("Regex pattern to search for"),
@@ -688,20 +688,20 @@
     offset: z.number().optional().describe("Skip first N results"),
   })
   ```
-- [ ] **2.5.2** Implementation strategy:
+- [x] **2.5.2** Implementation strategy:
   - **Primary**: Spawn `rg` (ripgrep) as child process if available on system
   - **Fallback**: Pure JS regex search using `fs.readFile()` + `RegExp`
-- [ ] **2.5.3** Output modes:
+- [x] **2.5.3** Output modes:
   - `files_with_matches`: return file paths only (one per line)
   - `content`: return matching lines with file:line format
   - `count`: return match counts per file
-- [ ] **2.5.4** Context lines support (-A, -B, -C) — only in `content` mode
-- [ ] **2.5.5** Head limit and offset for pagination
-- [ ] **2.5.6** Multiline mode: match across line boundaries
+- [x] **2.5.4** Context lines support (-A, -B, -C) — only in `content` mode
+- [x] **2.5.5** Head limit and offset for pagination
+- [x] **2.5.6** Multiline mode: match across line boundaries
 
 ### 2.6 Bash Tool (`src/tools/bash.ts`)
 
-- [ ] **2.6.1** Create tool with Zod schema:
+- [x] **2.6.1** Create tool with Zod schema:
   ```typescript
   parameters: z.object({
     command: z.string().describe("Shell command to execute"),
@@ -710,37 +710,37 @@
     run_in_background: z.boolean().optional().describe("Run in background"),
   })
   ```
-- [ ] **2.6.2** Execute in user's default shell:
+- [x] **2.6.2** Execute in user's default shell:
   - Detect shell from `$SHELL` env var (default: `/bin/sh`)
   - Run via `child_process.spawn(shell, ["-c", command])`
-- [ ] **2.6.3** Working directory persistence:
+- [x] **2.6.3** Working directory persistence:
   - Track `cwd` across bash invocations within the same session
   - If command contains `cd`, extract the target directory and update `cwd`
   - Use `cwd` option in `spawn()` call
-- [ ] **2.6.4** Timeout support:
+- [x] **2.6.4** Timeout support:
   - Default: 120000ms (2 minutes)
   - Maximum: 600000ms (10 minutes)
   - Kill process on timeout, return partial output + "Command timed out after {n}ms"
-- [ ] **2.6.5** Background execution:
+- [x] **2.6.5** Background execution:
   - If `run_in_background: true`, start process and return immediately
   - Assign a task ID
   - Provide a way to check output later (via `TaskOutput` tool or slash command)
-- [ ] **2.6.6** Stream output for long-running commands:
+- [x] **2.6.6** Stream output for long-running commands:
   - Collect stdout and stderr
   - Return combined output (stdout + stderr interleaved)
   - Truncate if output exceeds reasonable limit (e.g., 10000 lines)
-- [ ] **2.6.7** Return format: exit code + output
+- [x] **2.6.7** Return format: exit code + output
   ```
   Exit code: 0
   Output:
   {command output}
   ```
-- [ ] **2.6.8** Environment variable inheritance: pass through `process.env`
-- [ ] **2.6.9** Signal forwarding: forward SIGINT to child process on Ctrl+C
+- [x] **2.6.8** Environment variable inheritance: pass through `process.env`
+- [x] **2.6.9** Signal forwarding: forward SIGINT to child process on Ctrl+C
 
 ### 2.7 Git Operations (System Prompt, not a separate tool)
 
-- [ ] **2.7.1** Add git safety instructions to system prompt:
+- [x] **2.7.1** Add git safety instructions to system prompt:
   - Prefer new commits over amend
   - Never force push to main/master without explicit user request
   - Never skip hooks (--no-verify)
@@ -748,53 +748,53 @@
   - Stage specific files by name, not `git add -A` or `git add .`
   - Always use HEREDOC for commit messages (proper formatting)
   - Include `Co-Authored-By` line in commits
-- [ ] **2.7.2** Git context injection (appended to system prompt):
+- [x] **2.7.2** Git context injection (appended to system prompt):
   - Current branch name
   - Git status summary (modified/staged/untracked counts)
   - Last 5 commit messages (for style matching)
   - Remote tracking info
-- [ ] **2.7.3** PR creation instructions:
+- [x] **2.7.3** PR creation instructions:
   - Use `gh pr create` via Bash tool
   - Include summary, test plan, and generated attribution
 
 ### 2.8 Web Fetch Tool (`src/tools/web-fetch.ts`)
 
-- [ ] **2.8.1** Create tool with Zod schema:
+- [x] **2.8.1** Create tool with Zod schema:
   ```typescript
   parameters: z.object({
     url: z.string().url().describe("URL to fetch"),
     prompt: z.string().describe("What to extract from the page"),
   })
   ```
-- [ ] **2.8.2** Fetch URL with `fetch()` API
-- [ ] **2.8.3** Convert HTML to markdown (using `turndown` or `html-to-text`)
-- [ ] **2.8.4** Process extracted content with small/fast model for summarization (optional — can just return markdown)
-- [ ] **2.8.5** Implement 15-minute cache (in-memory `Map` with TTL)
-- [ ] **2.8.6** Handle redirects: follow up to 5 redirects, report if host changes
-- [ ] **2.8.7** Timeout: 30 seconds
-- [ ] **2.8.8** Truncate response if too large (>50KB markdown)
+- [x] **2.8.2** Fetch URL with `fetch()` API
+- [x] **2.8.3** Convert HTML to markdown (using `turndown` or `html-to-text`)
+- [x] **2.8.4** Process extracted content with small/fast model for summarization (optional — can just return markdown)
+- [x] **2.8.5** Implement 15-minute cache (in-memory `Map` with TTL)
+- [x] **2.8.6** Handle redirects: follow up to 5 redirects, report if host changes
+- [x] **2.8.7** Timeout: 30 seconds
+- [x] **2.8.8** Truncate response if too large (>50KB markdown)
 
 ### 2.9 Web Search Tool (`src/tools/web-search.ts`)
 
-- [ ] **2.9.1** Create tool with Zod schema:
+- [x] **2.9.1** Create tool with Zod schema:
   ```typescript
   parameters: z.object({
     query: z.string().describe("Search query"),
   })
   ```
-- [ ] **2.9.2** Search via API:
+- [x] **2.9.2** Search via API:
   - Primary: Brave Search API (`BRAVE_API_KEY`)
   - Fallback: Serper API (`SERPER_API_KEY`)
   - Fallback: SearXNG (self-hosted, `SEARXNG_URL`)
-- [ ] **2.9.3** Return formatted results:
+- [x] **2.9.3** Return formatted results:
   - Title, URL, snippet for each result
   - Markdown hyperlinks
   - Top 10 results
-- [ ] **2.9.4** Require source citations in responses (added to system prompt instructions)
+- [x] **2.9.4** Require source citations in responses (added to system prompt instructions)
 
 ### 2.10 Notebook Edit Tool (`src/tools/notebook-edit.ts`)
 
-- [ ] **2.10.1** Create tool with Zod schema:
+- [x] **2.10.1** Create tool with Zod schema:
   ```typescript
   parameters: z.object({
     notebook_path: z.string().describe("Absolute path to .ipynb file"),
@@ -805,10 +805,33 @@
     edit_mode: z.enum(["replace", "insert", "delete"]).optional().default("replace"),
   })
   ```
-- [ ] **2.10.2** Parse notebook JSON, locate target cell
-- [ ] **2.10.3** Operations: replace cell content, insert new cell, delete cell
-- [ ] **2.10.4** Preserve notebook metadata and output cells
-- [ ] **2.10.5** Write back valid .ipynb JSON
+- [x] **2.10.2** Parse notebook JSON, locate target cell
+- [x] **2.10.3** Operations: replace cell content, insert new cell, delete cell
+- [x] **2.10.4** Preserve notebook metadata and output cells
+- [x] **2.10.5** Write back valid .ipynb JSON
+
+> **Phase 2 implementation status (2026-03-04)**
+> - Completed: 2.1.1–2.1.12, 2.2.1–2.2.6, 2.3.1–2.3.8, 2.4.1–2.4.6, 2.5.1–2.5.6, 2.6.1–2.6.9, 2.7.1–2.7.3, 2.8.1–2.8.8, 2.9.1–2.9.4, 2.10.1–2.10.5.
+> - Files created/updated:
+>   - `src/tools/session-state.ts` — shared in-memory tool session state (read-file tracking, persistent bash cwd, background task tracking).
+>   - `src/tools/file-read.ts` — file read tool with line-number formatting, pagination, binary detection, image handling (base64 payload for vision-capable usage), PDF parsing (`pdf-parse`), and notebook rendering.
+>   - `src/tools/file-write.ts` — UTF-8 write tool with recursive parent directory creation, unread-overwrite warning, and write/error reporting.
+>   - `src/tools/file-edit.ts` — exact string replace tool with uniqueness checks, no-op guard, read-before-edit enforcement, and unified-diff style output.
+>   - `src/tools/glob.ts` — fast glob search (`fast-glob`) with `.gitignore` filtering (`ignore`), mtime sorting, and truncation controls.
+>   - `src/tools/grep.ts` — ripgrep-backed search tool with output modes, context flags, pagination, and pure-JS fallback when `rg` is unavailable.
+>   - `src/tools/bash.ts` — shell execution tool with timeout controls, cwd persistence, background task support, streamed output capture, and SIGINT forwarding.
+>   - `src/tools/web-fetch.ts` — URL fetch tool with HTML-to-markdown conversion (`turndown`), redirect host-change reporting, timeout, truncation, and 15-minute in-memory cache.
+>   - `src/tools/web-search.ts` — web search tool with provider cascade (Brave → Serper → SearXNG) and normalized markdown-formatted results.
+>   - `src/tools/notebook-edit.ts` — notebook cell edit tool supporting replace/insert/delete while preserving notebook metadata structure.
+>   - `src/tools/index.ts` — Phase 2 tool registry export list.
+>   - `src/agent/builder.ts` — registers all Phase 2 tools via `.tools(phaseTwoTools)`.
+>   - `src/agent/system-prompt.ts` — adds Git safety policy, Git context injection (branch/status/log/tracking), and source citation guidance.
+>   - `package.json` — adds Phase 2 dependencies: `fast-glob`, `ignore`, `pdf-parse`, `turndown`, and updates SDK reference to `file:../curio-agent-sdk-typescript`.
+> - Notes:
+>   - `bash_task_output` is exposed as a companion tool for retrieving output from background bash tasks started with `run_in_background: true`.
+>   - PDF page extraction uses parsed text segmentation and enforces a max of 20 requested pages.
+>   - Web fetch currently returns markdown content directly; model-based summarization remains optional and intentionally deferred.
+>   - Test and lint status after Phase 2 implementation: `bun run test` passes (12/12), `bun run lint` passes cleanly.
 
 ---
 
