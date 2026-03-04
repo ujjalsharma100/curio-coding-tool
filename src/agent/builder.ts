@@ -26,6 +26,8 @@ import { createPlanState } from "../plan/index.js";
 import { createPlanTools, type PlanStateRef } from "../plan/plan-tools.js";
 import { createSkillRegistry } from "../skills/index.js";
 import { loadMergedMcpConfig, McpBridgeManager } from "../mcp/index.js";
+import { loadConfig, type CurioConfig } from "../config/index.js";
+import { buildHookSystem, type CostTracker } from "../hooks/index.js";
 
 export interface BuildAgentResult {
   agent: Agent;
@@ -35,6 +37,8 @@ export interface BuildAgentResult {
   providerDisplayName: string;
   contextBudgetLabel: string;
   permissionMode: PermissionMode;
+  loadedConfig: CurioConfig;
+  costTracker: CostTracker;
   sessionManager?: CurioSessionManager;
   currentSessionId?: string;
   resumedFromSession?: string;
@@ -47,15 +51,32 @@ export interface BuildAgentResult {
 export async function buildAgent(
   config: CliRuntimeConfig,
 ): Promise<BuildAgentResult> {
+  const cwd = process.cwd();
+
+  // Phase 10: Load config (defaults ← global ← project ← env ← CLI flags)
+  const loaded = loadConfig({
+    projectRoot: cwd,
+    cliOverrides: {
+      ...(config.model ? { model: config.model } : {}),
+      ...(config.provider ? { provider: config.provider } : {}),
+      ...(config.permissionMode ? { permissionMode: config.permissionMode } : {}),
+    },
+  });
+  const curioConfig = loaded.config;
+
+  if (loaded.errors.length > 0) {
+    for (const err of loaded.errors) {
+      process.stderr.write(`Warning: ${err}\n`);
+    }
+  }
+
   const resolved = resolveProvider({
-    model: config.model,
-    provider: config.provider,
+    model: config.model ?? curioConfig.model,
+    provider: config.provider ?? curioConfig.provider,
   });
 
   const toolsForProvider =
     resolved.providerName === "ollama" ? [] : phaseTwoTools;
-
-  const cwd = process.cwd();
 
   // Session management (best-effort — tests may run without fs access to ~/.curio-code)
   let sessionManager: CurioSessionManager | undefined;
@@ -97,12 +118,13 @@ export async function buildAgent(
     sessionManager = undefined;
   }
 
-  // Memory system
+  // Memory system — CLI flag overrides config
   let memorySystem: CurioMemorySystem | undefined;
   let memoryFile: MemoryFileManager | undefined;
   let memoryPromptContent: string | undefined;
 
-  if (config.memoryEnabled) {
+  const memoryEnabled = config.memoryEnabled && (curioConfig.memory?.enabled !== false);
+  if (memoryEnabled) {
     try {
       memorySystem = await buildMemorySystem(cwd);
       memoryFile = memorySystem.memoryFile;
@@ -120,7 +142,10 @@ export async function buildAgent(
   });
   const contextWindow = buildContextWindowRuntime(resolved.model);
 
-  const mode: PermissionMode = config.permissionMode ?? "ask";
+  const mode: PermissionMode =
+    config.permissionMode ??
+    (curioConfig.permissionMode as PermissionMode) ??
+    "ask";
 
   const warning = permissionModeStartupWarning(mode);
   if (warning) {
@@ -165,6 +190,9 @@ export async function buildAgent(
     process.stderr.write("Warning: Failed to initialize MCP servers.\n");
   }
 
+  // Phase 10: Hook system
+  const hookSystem = buildHookSystem(curioConfig.hooks ?? undefined);
+
   const allPhase8Tools = [...todoTools, ...planTools];
 
   const builder = Agent.builder()
@@ -177,6 +205,13 @@ export async function buildAgent(
     .agentName("curio-code")
     .permissions(policy)
     .humanInput(humanInput);
+
+  // Phase 10: Register hooks from hook system
+  for (const event of hookSystem.registry.getRegisteredEvents()) {
+    for (const handler of hookSystem.registry.listHandlers(event)) {
+      builder.hook(event, handler);
+    }
+  }
 
   if (sessionManager) {
     builder.sessionManager(sessionManager.getSDKManager());
@@ -226,6 +261,8 @@ export async function buildAgent(
     providerDisplayName: resolved.providerDisplayName,
     contextBudgetLabel: buildContextBudgetLabel(contextWindow.config),
     permissionMode: mode,
+    loadedConfig: curioConfig,
+    costTracker: hookSystem.costTracker,
     sessionManager,
     currentSessionId,
     resumedFromSession,

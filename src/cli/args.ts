@@ -4,6 +4,7 @@ import { render } from "ink";
 import { buildAgent } from "../agent/builder.js";
 import { runOneShotMode } from "./repl.js";
 import type { PermissionMode } from "../permissions/modes.js";
+import { initProjectConfig, loadConfig, getConfigValue, setConfigValue } from "../config/index.js";
 
 interface RawOptions {
   model?: string;
@@ -104,18 +105,47 @@ export async function runCli(argv: string[] = process.argv): Promise<void> {
     .command("init")
     .description("Initialize project configuration for Curio Code.")
     .action(() => {
-      process.stdout.write(
-        "curio-code init: project initialization will be implemented in a later phase.\n",
-      );
+      const result = initProjectConfig(process.cwd());
+      process.stdout.write(`${result}\n`);
     });
 
   program
-    .command("config")
+    .command("config [key] [value]")
     .description("Show or edit Curio Code configuration.")
-    .action(() => {
-      process.stdout.write(
-        "curio-code config: configuration management will be implemented in a later phase.\n",
-      );
+    .action((key?: string, value?: string) => {
+      const loaded = loadConfig({ projectRoot: process.cwd() });
+      if (loaded.errors.length > 0) {
+        for (const err of loaded.errors) {
+          process.stderr.write(`${err}\n`);
+        }
+      }
+
+      if (!key) {
+        process.stdout.write(JSON.stringify(loaded.config, null, 2) + "\n");
+        return;
+      }
+
+      if (!value) {
+        const val = getConfigValue(loaded.config, key);
+        if (val === undefined) {
+          process.stdout.write(`(not set)\n`);
+        } else {
+          process.stdout.write(
+            typeof val === "object" ? JSON.stringify(val, null, 2) + "\n" : `${val}\n`,
+          );
+        }
+        return;
+      }
+
+      // Parse value — try number, boolean, then string
+      let parsed: unknown = value;
+      if (value === "true") parsed = true;
+      else if (value === "false") parsed = false;
+      else if (/^\d+(\.\d+)?$/.test(value)) parsed = Number(value);
+
+      const targetPath = loaded.projectPath ?? loaded.globalPath;
+      setConfigValue(targetPath, key, parsed);
+      process.stdout.write(`Set ${key} = ${JSON.stringify(parsed)} in ${targetPath}\n`);
     });
 
   program
@@ -166,7 +196,7 @@ export async function runCli(argv: string[] = process.argv): Promise<void> {
       permissionMode: rawOptions.permissionMode,
       continueLastSession: !!rawOptions["continue"],
       resumeSessionId: rawOptions.resume,
-      verbose: !!rawOptions.verbose,
+      verbose: !!rawOptions.verbose || !!process.env.DEBUG,
       memoryEnabled: rawOptions.memory !== false,
       maxTurns: rawOptions.maxTurns,
     };
@@ -187,6 +217,10 @@ export async function runCli(argv: string[] = process.argv): Promise<void> {
       modelDisplayName,
       providerDisplayName,
       contextBudgetLabel,
+      permissionMode,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      loadedConfig,
+      costTracker,
       sessionManager,
       currentSessionId,
       resumedFromSession,
@@ -195,6 +229,10 @@ export async function runCli(argv: string[] = process.argv): Promise<void> {
       planStateRef,
       mcpBridgeManager,
     } = agentResult;
+
+    // Build skill registry for slash commands
+    const { createSkillRegistry } = await import("../skills/index.js");
+    const skillRegistry = createSkillRegistry(process.cwd());
 
     try {
       if (runtimeConfig.interactive) {
@@ -215,6 +253,9 @@ export async function runCli(argv: string[] = process.argv): Promise<void> {
             todoManager,
             planStateRef,
             mcpBridgeManager,
+            skillRegistry,
+            costTracker,
+            permissionMode,
           }),
           {
             exitOnCtrlC: false,

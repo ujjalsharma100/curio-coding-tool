@@ -20,6 +20,9 @@ import { processAutoMemory } from "../memory/index.js";
 import type { TodoManager } from "../todos/index.js";
 import type { PlanStateRef } from "../plan/plan-tools.js";
 import type { McpBridgeManager } from "../mcp/index.js";
+import type { SkillRegistry } from "curio-agent-sdk";
+import type { CostTracker } from "../hooks/index.js";
+import type { PermissionMode } from "../permissions/modes.js";
 
 interface AppProps {
   readonly agent: Agent;
@@ -36,6 +39,9 @@ interface AppProps {
   readonly todoManager?: TodoManager;
   readonly planStateRef?: PlanStateRef;
   readonly mcpBridgeManager?: McpBridgeManager;
+  readonly skillRegistry?: SkillRegistry;
+  readonly costTracker?: CostTracker;
+  readonly permissionMode?: PermissionMode;
 }
 
 interface ConversationMessage {
@@ -101,6 +107,9 @@ export function App({
   todoManager,
   planStateRef,
   mcpBridgeManager,
+  skillRegistry,
+  costTracker,
+  permissionMode,
 }: AppProps): JSX.Element {
   const theme = getActiveTheme();
   const { exit } = useApp();
@@ -269,6 +278,10 @@ export function App({
     todoManager,
     planStateRef,
     mcpBridgeManager,
+    skillRegistry,
+    costTracker,
+    permissionMode,
+    onExit: () => exit(),
   };
 
   const sendMessage = useCallback(

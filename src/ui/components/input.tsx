@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Box, Text, useInput } from "ink";
 import type { Theme } from "../theme.js";
+import { getSlashCommandCompletions } from "../../cli/commands/slash-commands.js";
 
 export interface InputProps {
   readonly theme: Theme;
@@ -82,8 +83,24 @@ export function Input({
         return;
       }
 
+      if (key.escape) {
+        setValue("");
+        setHistoryIndex(null);
+        return;
+      }
+
       if (key.backspace || key.delete) {
         setValue((prev) => prev.slice(0, -1));
+        return;
+      }
+
+      if (key.tab) {
+        if (value.startsWith("/")) {
+          const completions = getSlashCommandCompletions(value);
+          if (completions.length === 1) {
+            setValue(completions[0]! + " ");
+          }
+        }
         return;
       }
 
@@ -108,7 +125,7 @@ export function Input({
       </Box>
       <Box marginTop={0}>
         <Text color={theme.muted}>
-          Enter to send · Ctrl+C to interrupt
+          Enter to send · Up/Down history · Esc clear · Ctrl+C interrupt
         </Text>
       </Box>
     </Box>

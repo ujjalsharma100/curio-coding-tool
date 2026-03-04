@@ -13,6 +13,13 @@ import { approvePlan, rejectPlan, exitPlanMode } from "../../plan/index.js";
 import type { SubagentTaskRegistry } from "../../tools/agent-spawn.js";
 import type { McpBridgeManager } from "../../mcp/index.js";
 import { addMcpServerToConfig, removeMcpServerFromConfig } from "../../mcp/index.js";
+import type { SkillRegistry } from "curio-agent-sdk";
+import { loadConfig, getConfigValue, setConfigValue } from "../../config/index.js";
+import type { CostTracker } from "../../hooks/index.js";
+import { formatCostSummary } from "../../hooks/index.js";
+import type { PermissionMode } from "../../permissions/modes.js";
+
+const VERSION = "0.0.0";
 
 export interface SlashCommandContext {
   sessionManager?: CurioSessionManager;
@@ -25,6 +32,11 @@ export interface SlashCommandContext {
   planStateRef?: PlanStateRef;
   subagentRegistry?: SubagentTaskRegistry;
   mcpBridgeManager?: McpBridgeManager;
+  skillRegistry?: SkillRegistry;
+  costTracker?: CostTracker;
+  permissionMode?: PermissionMode;
+  onPermissionModeChange?: (mode: PermissionMode) => void;
+  onExit?: () => void;
 }
 
 export interface SlashCommandResult {
@@ -47,10 +59,7 @@ export async function handleSlashCommand(
 
   switch (command) {
     case "/help":
-      return {
-        handled: true,
-        output: formatHelp(),
-      };
+      return handleHelp(parts.slice(1), ctx);
 
     case "/sessions":
       return handleListSessions(ctx);
@@ -85,39 +94,179 @@ export async function handleSlashCommand(
     case "/mcp":
       return handleMcp(parts.slice(1), ctx);
 
-    default:
+    case "/skills":
+      return handleSkills(ctx);
+
+    case "/config":
+      return handleConfig(parts.slice(1));
+
+    case "/status":
+      return handleStatus(ctx);
+
+    case "/cost":
+      return handleCost(ctx);
+
+    case "/export":
+      return handleExport(parts.slice(1), ctx);
+
+    case "/mode":
+      return handleMode(parts.slice(1), ctx);
+
+    case "/bug":
+      return { handled: true, output: "Report bugs at: https://github.com/curio-labs/curio-code/issues" };
+
+    case "/version":
+      return { handled: true, output: `Curio Code v${VERSION}` };
+
+    case "/exit":
+    case "/quit":
+      if (ctx.onExit) {
+        ctx.onExit();
+      }
+      return { handled: true, output: "Goodbye!" };
+
+    default: {
+      // Check skill-based slash commands
+      const skillResult = handleSkillCommand(command, parts.slice(1), ctx);
+      if (skillResult) return skillResult;
+
       return {
         handled: false,
         error: `Unknown command: ${command}. Type /help for available commands.`,
       };
+    }
   }
 }
 
-function formatHelp(): string {
-  return [
-    "Available commands:",
-    "  /help              — Show this help",
-    "  /model             — Show current model info",
-    "  /model list        — List available models",
-    "  /model aliases     — Show model short aliases",
-    "  /sessions          — List recent sessions (last 20)",
-    "  /session delete <id> — Delete a session",
-    "  /session export <id> — Export session as markdown",
-    "  /compact           — Manually trigger context compression",
-    "  /memory            — Show current MEMORY.md contents",
-    "  /forget <topic>    — Remove specific memory",
-    "  /tasks             — List all tasks with status",
-    "  /task <id>         — Show task details / check background task",
-    "  /plan              — Show plan mode status",
-    "  /plan approve      — Approve submitted plan",
-    "  /plan reject       — Reject submitted plan",
-    "  /mcp               — List MCP servers and tools",
-    "  /mcp list          — List MCP servers and tools",
-    "  /mcp add <name> <cmd> [args] — Add MCP server to config",
-    "  /mcp remove <name> — Remove MCP server from config",
-    "  /mcp restart <name> — Restart MCP server",
-    "  /clear             — Clear the screen",
-  ].join("\n");
+const COMMAND_HELP: Record<string, { brief: string; detail: string }> = {
+  "/help": {
+    brief: "Show available commands and keybindings",
+    detail: "Usage: /help [command]\nShow this help, or detailed help for a specific command.",
+  },
+  "/model": {
+    brief: "Show or switch model",
+    detail: "Usage: /model | /model list | /model aliases\nShow current model info, list all available models, or show short aliases.",
+  },
+  "/sessions": {
+    brief: "List recent sessions (last 20)",
+    detail: "Usage: /sessions\nShows recent sessions with ID, project, model, and timestamp.",
+  },
+  "/session": {
+    brief: "Session management",
+    detail: "Usage: /session delete <id> | /session export <id>\nDelete or export a specific session by ID (prefix match supported).",
+  },
+  "/compact": {
+    brief: "Compress conversation context manually",
+    detail: "Usage: /compact\nTriggers context window compression to free up token budget.",
+  },
+  "/memory": {
+    brief: "Show current persistent memory",
+    detail: "Usage: /memory\nDisplay the contents of MEMORY.md for this project.",
+  },
+  "/forget": {
+    brief: "Remove a memory",
+    detail: "Usage: /forget <topic>\nRemove memory entries matching the given topic.",
+  },
+  "/tasks": {
+    brief: "List all tasks with status",
+    detail: "Usage: /tasks\nShow all todo items and their current status.",
+  },
+  "/task": {
+    brief: "Show task details",
+    detail: "Usage: /task <id>\nShow details for a specific task or background subagent.",
+  },
+  "/plan": {
+    brief: "Plan mode status and control",
+    detail: "Usage: /plan | /plan approve | /plan reject | /plan cancel\nShow plan mode status or approve/reject/cancel a submitted plan.",
+  },
+  "/mcp": {
+    brief: "MCP server management",
+    detail: "Usage: /mcp | /mcp list | /mcp add <name> <cmd> [args] | /mcp remove <name> | /mcp restart <name>\nManage Model Context Protocol server connections.",
+  },
+  "/skills": {
+    brief: "List available skills",
+    detail: "Usage: /skills\nShow all registered skills (built-in, user, project).",
+  },
+  "/config": {
+    brief: "Show or modify configuration",
+    detail: "Usage: /config | /config <key> | /config <key> <value>\nShow full config, get a specific key, or set a value.",
+  },
+  "/status": {
+    brief: "Show agent status",
+    detail: "Usage: /status\nShow model, provider, session, tokens used, cost, and mode info.",
+  },
+  "/cost": {
+    brief: "Show detailed cost breakdown",
+    detail: "Usage: /cost\nShow per-model, per-turn cost breakdown for this session.",
+  },
+  "/export": {
+    brief: "Export conversation",
+    detail: "Usage: /export [format]\nExport the current conversation. Formats: markdown (default), json.",
+  },
+  "/mode": {
+    brief: "Show or change permission mode",
+    detail: "Usage: /mode | /mode ask | /mode auto | /mode strict\nShow current permission mode or switch to a different one.",
+  },
+  "/bug": {
+    brief: "Report a bug",
+    detail: "Usage: /bug\nOpens link to GitHub issues for bug reporting.",
+  },
+  "/version": {
+    brief: "Show version info",
+    detail: `Usage: /version\nDisplays Curio Code version (currently v${VERSION}).`,
+  },
+  "/clear": {
+    brief: "Clear conversation history",
+    detail: "Usage: /clear\nClear the screen and conversation history (system prompt retained).",
+  },
+  "/exit": {
+    brief: "Exit Curio Code",
+    detail: "Usage: /exit or /quit\nExit the application.",
+  },
+};
+
+function handleHelp(args: string[], ctx: SlashCommandContext): SlashCommandResult {
+  const sub = args[0]?.toLowerCase();
+
+  if (sub) {
+    const cmdKey = sub.startsWith("/") ? sub : `/${sub}`;
+    const help = COMMAND_HELP[cmdKey];
+    if (help) {
+      return { handled: true, output: help.detail };
+    }
+    return { handled: true, error: `No help for: ${cmdKey}. Type /help for available commands.` };
+  }
+
+  const lines = ["Available commands:", ""];
+
+  for (const [cmd, { brief }] of Object.entries(COMMAND_HELP)) {
+    if (cmd === "/exit") continue;
+    lines.push(`  ${cmd.padEnd(18)}— ${brief}`);
+  }
+  lines.push(`  /exit, /quit      — Exit Curio Code`);
+
+  // Skill-based commands
+  if (ctx.skillRegistry) {
+    const skills = ctx.skillRegistry.list();
+    const skillCommands = skills.filter((s) => (s as unknown as { command?: string }).command);
+    if (skillCommands.length > 0) {
+      lines.push("", "Skill commands:");
+      for (const s of skillCommands) {
+        const cmd = (s as unknown as { command?: string }).command ?? `/${s.name}`;
+        lines.push(`  ${cmd.padEnd(18)}— ${s.description}`);
+      }
+    }
+  }
+
+  lines.push("", "Keybindings:");
+  lines.push("  Enter            — Submit input");
+  lines.push("  Up/Down          — Navigate history");
+  lines.push("  Escape           — Clear input");
+  lines.push("  Ctrl+C           — Interrupt generation");
+  lines.push("  Ctrl+D           — Exit");
+  lines.push("  Tab              — Autocomplete commands");
+
+  return { handled: true, output: lines.join("\n") };
 }
 
 async function handleListSessions(
@@ -610,4 +759,221 @@ async function handleMcpRestart(
     handled: true,
     error: `MCP server "${name}" not found.`,
   };
+}
+
+// ---------------------------------------------------------------------------
+// /skills — list available skills
+// ---------------------------------------------------------------------------
+
+function handleSkills(ctx: SlashCommandContext): SlashCommandResult {
+  if (!ctx.skillRegistry) {
+    return { handled: true, output: "No skills loaded." };
+  }
+
+  const skills = ctx.skillRegistry.list();
+  if (skills.length === 0) {
+    return { handled: true, output: "No skills registered." };
+  }
+
+  const lines = ["Available skills:", ""];
+  for (const s of skills) {
+    const cmd = (s as unknown as { command?: string }).command;
+    const cmdStr = cmd ? ` (${cmd})` : "";
+    lines.push(`  ${s.name}${cmdStr} — ${s.description}`);
+  }
+
+  return { handled: true, output: lines.join("\n") };
+}
+
+// ---------------------------------------------------------------------------
+// /config — show or modify configuration
+// ---------------------------------------------------------------------------
+
+function handleConfig(args: string[]): SlashCommandResult {
+  const key = args[0];
+  const value = args.slice(1).join(" ");
+
+  const loaded = loadConfig({ projectRoot: process.cwd() });
+
+  if (!key) {
+    return { handled: true, output: JSON.stringify(loaded.config, null, 2) };
+  }
+
+  if (!value) {
+    const val = getConfigValue(loaded.config, key);
+    if (val === undefined) {
+      return { handled: true, output: `${key}: (not set)` };
+    }
+    return {
+      handled: true,
+      output: `${key}: ${typeof val === "object" ? JSON.stringify(val, null, 2) : String(val)}`,
+    };
+  }
+
+  // Set value
+  let parsed: unknown = value;
+  if (value === "true") parsed = true;
+  else if (value === "false") parsed = false;
+  else if (/^\d+(\.\d+)?$/.test(value)) parsed = Number(value);
+
+  const targetPath = loaded.projectPath ?? loaded.globalPath;
+  try {
+    setConfigValue(targetPath, key, parsed);
+    return {
+      handled: true,
+      output: `Set ${key} = ${JSON.stringify(parsed)} in ${targetPath}`,
+    };
+  } catch (err) {
+    return {
+      handled: true,
+      error: `Failed to set config: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// /status — show agent status
+// ---------------------------------------------------------------------------
+
+function handleStatus(ctx: SlashCommandContext): SlashCommandResult {
+  const lines = ["Agent status:", ""];
+
+  lines.push(`  Model:      ${ctx.currentModel ?? "unknown"}`);
+  lines.push(`  Provider:   ${ctx.currentProvider ? getProviderDisplayName(ctx.currentProvider) : "unknown"}`);
+  lines.push(`  Session:    ${ctx.currentSessionId?.slice(0, 8) ?? "none"}`);
+  lines.push(`  Mode:       ${ctx.permissionMode ?? "ask"}`);
+
+  if (ctx.costTracker) {
+    lines.push(`  Turns:      ${ctx.costTracker.turns.length}`);
+    lines.push(`  Est. cost:  $${ctx.costTracker.totalCost.toFixed(4)}`);
+  }
+
+  const available = detectAvailableProviders();
+  if (available.length > 0) {
+    lines.push(`  Providers:  ${available.join(", ")}`);
+  }
+
+  return { handled: true, output: lines.join("\n") };
+}
+
+// ---------------------------------------------------------------------------
+// /cost — detailed cost breakdown
+// ---------------------------------------------------------------------------
+
+function handleCost(ctx: SlashCommandContext): SlashCommandResult {
+  if (!ctx.costTracker) {
+    return { handled: true, output: "Cost tracking not available." };
+  }
+  return { handled: true, output: formatCostSummary(ctx.costTracker) };
+}
+
+// ---------------------------------------------------------------------------
+// /export — export conversation
+// ---------------------------------------------------------------------------
+
+async function handleExport(
+  args: string[],
+  ctx: SlashCommandContext,
+): Promise<SlashCommandResult> {
+  const format = args[0]?.toLowerCase() ?? "markdown";
+
+  if (!ctx.sessionManager || !ctx.currentSessionId) {
+    return { handled: true, error: "No active session to export." };
+  }
+
+  try {
+    if (format === "json") {
+      const data = await ctx.sessionManager.resumeSession(ctx.currentSessionId);
+      return {
+        handled: true,
+        output: JSON.stringify({
+          session: data.session,
+          messages: data.messages,
+        }, null, 2),
+      };
+    }
+
+    const markdown = await ctx.sessionManager.exportAsMarkdown(ctx.currentSessionId);
+    return { handled: true, output: markdown };
+  } catch (err) {
+    return {
+      handled: true,
+      error: `Export failed: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// /mode — show or change permission mode
+// ---------------------------------------------------------------------------
+
+function handleMode(
+  args: string[],
+  ctx: SlashCommandContext,
+): SlashCommandResult {
+  const newMode = args[0]?.toLowerCase();
+
+  if (!newMode) {
+    return {
+      handled: true,
+      output: `Current permission mode: ${ctx.permissionMode ?? "ask"}`,
+    };
+  }
+
+  if (newMode !== "ask" && newMode !== "auto" && newMode !== "strict") {
+    return {
+      handled: true,
+      error: `Invalid mode: ${newMode}. Use: ask | auto | strict`,
+    };
+  }
+
+  if (ctx.onPermissionModeChange) {
+    ctx.onPermissionModeChange(newMode as PermissionMode);
+  }
+
+  return {
+    handled: true,
+    output: `Permission mode changed to: ${newMode}`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Skill-based slash commands (e.g. /commit, /pr, /review-pr, /simplify)
+// ---------------------------------------------------------------------------
+
+function handleSkillCommand(
+  command: string,
+  _args: string[],
+  ctx: SlashCommandContext,
+): SlashCommandResult | null {
+  if (!ctx.skillRegistry) return null;
+
+  const skills = ctx.skillRegistry.list();
+  for (const skill of skills) {
+    const skillCmd = (skill as unknown as { command?: string }).command;
+    if (skillCmd && skillCmd === command) {
+      const instructions = skill.instructions ?? skill.description ?? "No instructions available.";
+      return {
+        handled: true,
+        output: `__SKILL_INVOKE__:${skill.name}:${instructions}`,
+      };
+    }
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Tab autocomplete support
+// ---------------------------------------------------------------------------
+
+export function getSlashCommandCompletions(partial: string): string[] {
+  const allCommands = [
+    ...Object.keys(COMMAND_HELP),
+    "/quit",
+  ];
+
+  if (!partial.startsWith("/")) return [];
+
+  return allCommands.filter((cmd) => cmd.startsWith(partial.toLowerCase()));
 }
