@@ -422,7 +422,7 @@ describe("Phase 7.2 Model Selection", () => {
     });
 
     it("groq models have no pricing", () => {
-      const meta = getModelMetadata("groq:llama-3.1-70b-versatile");
+      const meta = getModelMetadata("groq:llama-3.3-70b-versatile");
       expect(meta).toBeDefined();
       expect(meta!.inputPricePerMToken).toBeUndefined();
     });
@@ -470,7 +470,7 @@ describe("Phase 7.3 Tiered Routing", () => {
     it("assigns tier 1 to fast/cheap models", () => {
       expect(getModelTier("anthropic:claude-haiku-4-5")).toBe(1);
       expect(getModelTier("openai:gpt-4o-mini")).toBe(1);
-      expect(getModelTier("groq:llama-3.1-70b-versatile")).toBe(1);
+      expect(getModelTier("groq:llama-3.3-70b-versatile")).toBe(1);
       expect(getModelTier("gemini:gemini-2.0-flash")).toBe(1);
     });
 
@@ -543,7 +543,7 @@ describe("Phase 7.4 Model-Specific Adaptations", () => {
     });
 
     it("Groq Llama does NOT support vision", () => {
-      expect(getModelMetadata("groq:llama-3.1-70b-versatile")?.supportsVision).toBe(false);
+      expect(getModelMetadata("groq:llama-3.3-70b-versatile")?.supportsVision).toBe(false);
     });
 
     it("DeepSeek does NOT support vision", () => {

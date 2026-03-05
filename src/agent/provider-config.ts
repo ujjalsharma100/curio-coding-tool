@@ -23,7 +23,7 @@ const MODEL_ALIASES: Record<string, string> = {
   o1: "openai:o1",
   o3: "openai:o3",
   // Groq
-  llama: "groq:llama-3.1-70b-versatile",
+  llama: "groq:llama-3.3-70b-versatile",
   // Gemini (custom provider)
   gemini: "gemini:gemini-2.0-flash",
   "gemini-pro": "gemini:gemini-2.0-pro",
@@ -56,7 +56,7 @@ const DEFAULT_MODEL_PRIORITY: Array<{
   { envKey: "OPENAI_API_KEY", model: "openai:gpt-4o", provider: "openai" },
   {
     envKey: "GROQ_API_KEY",
-    model: "groq:llama-3.1-70b-versatile",
+    model: "groq:llama-3.3-70b-versatile",
     provider: "groq",
   },
   {
@@ -167,13 +167,37 @@ const MODEL_METADATA: Record<string, ModelMetadata> = {
     inputPricePerMToken: 10, outputPricePerMToken: 40,
   },
   // Groq
-  "groq:llama-3.1-70b-versatile": {
-    id: "llama-3.1-70b-versatile", provider: "groq", displayName: "Llama 3.1 70B",
-    contextWindow: 32_000, supportsVision: false, supportsTools: true, supportsThinking: false,
-  },
   "groq:mixtral-8x7b-32768": {
     id: "mixtral-8x7b-32768", provider: "groq", displayName: "Mixtral 8x7B",
     contextWindow: 32_000, supportsVision: false, supportsTools: true, supportsThinking: false,
+  },
+  "groq:openai/gpt-oss-20b": {
+    id: "openai/gpt-oss-20b", provider: "groq", displayName: "GPT-OSS 20B",
+    contextWindow: 131_072, supportsVision: false, supportsTools: true, supportsThinking: false,
+  },
+  "groq:llama-3.1-8b-instant": {
+    id: "llama-3.1-8b-instant", provider: "groq", displayName: "Llama 3.1 8B Instant",
+    contextWindow: 131_072, supportsVision: false, supportsTools: true, supportsThinking: false,
+  },
+  "groq:meta-llama/llama-4-scout-17b-16e-instruct": {
+    id: "meta-llama/llama-4-scout-17b-16e-instruct", provider: "groq", displayName: "Llama 4 Scout 17B",
+    contextWindow: 131_072, supportsVision: false, supportsTools: true, supportsThinking: false,
+  },
+  "groq:llama-3.3-70b-versatile": {
+    id: "llama-3.3-70b-versatile", provider: "groq", displayName: "Llama 3.3 70B Versatile",
+    contextWindow: 131_072, supportsVision: false, supportsTools: true, supportsThinking: false,
+  },
+  "groq:moonshotai/kimi-k2-instruct-0905": {
+    id: "moonshotai/kimi-k2-instruct-0905", provider: "groq", displayName: "Kimi K2 Instruct 0905",
+    contextWindow: 131_072, supportsVision: false, supportsTools: true, supportsThinking: false,
+  },
+  "groq:qwen/qwen3-32b": {
+    id: "qwen/qwen3-32b", provider: "groq", displayName: "Qwen 3 32B",
+    contextWindow: 131_072, supportsVision: false, supportsTools: true, supportsThinking: false,
+  },
+  "groq:meta-llama/llama-4-maverick-17b-128e-instruct": {
+    id: "meta-llama/llama-4-maverick-17b-128e-instruct", provider: "groq", displayName: "Llama 4 Maverick 17B",
+    contextWindow: 131_072, supportsVision: false, supportsTools: true, supportsThinking: false,
   },
   // Gemini
   "gemini:gemini-2.0-flash": {
@@ -720,7 +744,7 @@ const DEFAULT_ROUTER_CONFIG: RouterConfig = {
     models: [
       "anthropic:claude-haiku-4-5",
       "openai:gpt-4o-mini",
-      "groq:llama-3.1-70b-versatile",
+      "groq:llama-3.3-70b-versatile",
       "gemini:gemini-2.0-flash",
     ],
   },

@@ -161,13 +161,13 @@ describe("Phase 10.1 — Config Loader", () => {
       JSON.stringify({ model: "openai:gpt-4o" }),
     );
 
-    process.env.CURIO_CODE_MODEL = "groq:llama-3.1-70b-versatile";
+    process.env.CURIO_CODE_MODEL = "groq:llama-3.3-70b-versatile";
     const loaded = loadConfig({ projectRoot: tmpDir });
-    expect(loaded.config.model).toBe("groq:llama-3.1-70b-versatile");
+    expect(loaded.config.model).toBe("groq:llama-3.3-70b-versatile");
   });
 
   it("CLI overrides take highest priority", async () => {
-    process.env.CURIO_CODE_MODEL = "groq:llama-3.1-70b-versatile";
+    process.env.CURIO_CODE_MODEL = "groq:llama-3.3-70b-versatile";
     const loaded = loadConfig({
       projectRoot: tmpDir,
       cliOverrides: { model: "anthropic:claude-opus-4-6" },

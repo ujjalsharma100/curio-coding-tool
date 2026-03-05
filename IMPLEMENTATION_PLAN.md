@@ -537,7 +537,7 @@
 - [x] **1.4.2** Default model selection priority:
   1. `anthropic:claude-sonnet-4-6` (if `ANTHROPIC_API_KEY` set)
   2. `openai:gpt-4o` (if `OPENAI_API_KEY` set)
-  3. `groq:llama-3.1-70b-versatile` (if `GROQ_API_KEY` set)
+  3. `groq:llama-3.3-70b-versatile` (if `GROQ_API_KEY` set)
   4. `ollama:llama3.1` (if Ollama available)
   5. Error: "No LLM provider configured. Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or another provider key."
 - [x] **1.4.3** Model override via `--model` flag:

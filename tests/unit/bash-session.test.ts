@@ -4,9 +4,7 @@ import { bashTool, bashTaskOutputTool } from "../../src/tools/bash.js";
 import { toolSessionState } from "../../src/tools/session-state.js";
 
 vi.mock("node:child_process", async () => {
-  const actual = await vi.importActual<typeof import("node:child_process")>(
-    "node:child_process",
-  );
+  const actual = await import("node:child_process") as typeof import("node:child_process");
   return {
     ...actual,
     spawn: vi.fn(),
