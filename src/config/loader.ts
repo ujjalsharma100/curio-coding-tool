@@ -102,6 +102,14 @@ export interface LoadedConfig {
   projectPath: string | null;
   globalExists: boolean;
   projectExists: boolean;
+  /**
+   * True if a non-default model was provided via any user-facing source:
+   * global/project config, CURIO_CODE_MODEL, or CLI overrides.
+   *
+   * When false, callers should treat the model as "auto" and let the
+   * provider layer choose a default based on available API keys.
+   */
+  hasExplicitModel: boolean;
   errors: string[];
 }
 
@@ -112,6 +120,20 @@ export function loadConfig(options?: LoadConfigOptions): LoadedConfig {
   const globalRaw = readJsonFile(paths.global);
   const projectRaw = paths.project ? readJsonFile(paths.project) : null;
   const envRaw = envOverrides();
+
+  // Track whether the user has explicitly set a model via any
+  // higher-priority source than the schema defaults. This lets
+  // the agent distinguish between "no model specified" (auto-detect
+  // from provider env vars) and "user explicitly chose a model".
+  const modelFromGlobal = (globalRaw as Record<string, unknown> | null)?.model;
+  const modelFromProject = (projectRaw as Record<string, unknown> | null)?.model;
+  const modelFromEnv = (envRaw as Record<string, unknown>).model;
+  const modelFromCli = options?.cliOverrides?.model;
+  const hasExplicitModel =
+    modelFromGlobal !== undefined ||
+    modelFromProject !== undefined ||
+    modelFromEnv !== undefined ||
+    modelFromCli !== undefined;
 
   const merged = deepMerge(
     CONFIG_DEFAULTS as unknown as Record<string, unknown>,
@@ -133,6 +155,7 @@ export function loadConfig(options?: LoadConfigOptions): LoadedConfig {
       projectPath: paths.project,
       globalExists: globalRaw !== null,
       projectExists: projectRaw !== null,
+      hasExplicitModel,
       errors,
     };
   }
@@ -143,6 +166,7 @@ export function loadConfig(options?: LoadConfigOptions): LoadedConfig {
     projectPath: paths.project,
     globalExists: globalRaw !== null,
     projectExists: projectRaw !== null,
+    hasExplicitModel,
     errors,
   };
 }

@@ -70,8 +70,16 @@ export async function buildAgent(
     }
   }
 
+  // If the user has not explicitly chosen a model anywhere (config file,
+  // CURIO_CODE_MODEL, or CLI flag), let the provider layer auto-detect
+  // the best default from available API keys instead of hard-coding
+  // Anthropic as the startup requirement.
+  const modelForResolution = loaded.hasExplicitModel
+    ? (config.model ?? curioConfig.model)
+    : undefined;
+
   const resolved = resolveProvider({
-    model: config.model ?? curioConfig.model,
+    model: modelForResolution,
     provider: config.provider ?? curioConfig.provider,
   });
 
