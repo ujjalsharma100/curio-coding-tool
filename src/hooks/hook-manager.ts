@@ -1,8 +1,9 @@
-import { HookRegistry, HookContext } from "curio-agent-sdk";
+import { HookRegistry, HookContext, HookEvent } from "curio-agent-sdk";
 import { appendFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { execSync } from "node:child_process";
 import { getCurioHome } from "../config/index.js";
+import { logEvent } from "../logging/file-logger.js";
 
 // ---------------------------------------------------------------------------
 // Built-in hook: Audit log — logs all tool calls to audit.log
@@ -111,6 +112,21 @@ function createShellHook(
 }
 
 // ---------------------------------------------------------------------------
+// Built-in hook: Detailed debug file log (tool calls, LLM calls, agent runs)
+// ---------------------------------------------------------------------------
+
+function createDebugLogHook(): (ctx: HookContext) => void {
+  return (ctx: HookContext) => {
+    logEvent(ctx.event, {
+      runId: ctx.runId,
+      agentId: ctx.agentId,
+      iteration: ctx.iteration,
+      data: ctx.data,
+    });
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Build the hook system from config
 // ---------------------------------------------------------------------------
 
@@ -119,9 +135,28 @@ export interface HookSystemResult {
   costTracker: CostTracker;
 }
 
+const DEBUG_LOG_EVENTS = [
+  HookEvent.AGENT_RUN_BEFORE,
+  HookEvent.AGENT_RUN_AFTER,
+  HookEvent.AGENT_RUN_ERROR,
+  HookEvent.AGENT_ITERATION_BEFORE,
+  HookEvent.AGENT_ITERATION_AFTER,
+  HookEvent.LLM_CALL_BEFORE,
+  HookEvent.LLM_CALL_AFTER,
+  HookEvent.LLM_CALL_ERROR,
+  HookEvent.TOOL_CALL_BEFORE,
+  HookEvent.TOOL_CALL_AFTER,
+  HookEvent.TOOL_CALL_ERROR,
+] as const;
+
 export function buildHookSystem(hooksConfig?: Record<string, string>): HookSystemResult {
   const registry = new HookRegistry();
   const costTracker: CostTracker = { turns: [], totalCost: 0 };
+
+  const debugLogHook = createDebugLogHook();
+  for (const event of DEBUG_LOG_EVENTS) {
+    registry.on(event, debugLogHook);
+  }
 
   // Built-in: audit log
   const auditLogPath = join(getCurioHome(), "audit.log");

@@ -1,6 +1,7 @@
 import readline from "node:readline";
 import type { Agent } from "curio-agent-sdk";
 import type { StreamEvent } from "curio-agent-sdk";
+import { logStreamEvent } from "../logging/index.js";
 
 /**
  * Run the interactive REPL: prompt → stream → repeat.
@@ -54,6 +55,10 @@ export async function runInteractiveRepl(agent: Agent): Promise<void> {
       currentStream = agent.astream(input);
       for await (const event of currentStream) {
         if (interrupted) break;
+        const runId = event.type === "done" && event.result && "runId" in event.result
+          ? (event.result as { runId: string }).runId
+          : undefined;
+        logStreamEvent(runId, event as Record<string, unknown> & { type: string });
         renderStreamEvent(event);
       }
     } catch (err) {
@@ -86,6 +91,10 @@ export async function runOneShotMode(
 ): Promise<void> {
   try {
     for await (const event of agent.astream(prompt)) {
+      const runId = event.type === "done" && event.result && "runId" in event.result
+        ? (event.result as { runId: string }).runId
+        : undefined;
+      logStreamEvent(runId, event as Record<string, unknown> & { type: string });
       if (printOnly) {
         if (event.type === "text_delta") {
           process.stdout.write(event.text);

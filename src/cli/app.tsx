@@ -23,6 +23,7 @@ import type { McpBridgeManager } from "../mcp/index.js";
 import type { SkillRegistry } from "curio-agent-sdk";
 import type { CostTracker } from "../hooks/index.js";
 import type { PermissionMode } from "../permissions/modes.js";
+import { logStreamEvent } from "../logging/index.js";
 
 interface AppProps {
   readonly agent: Agent;
@@ -174,6 +175,11 @@ export function App({
 
   const handleStreamEvent = useCallback(
     (event: StreamEvent, assistantId: string) => {
+      const runId = event.type === "done" && event.result && "runId" in event.result
+        ? (event.result as { runId: string }).runId
+        : undefined;
+      logStreamEvent(runId, event as Record<string, unknown> & { type: string });
+
       switch (event.type) {
         case "text_delta": {
           setHasFirstToken(true);
