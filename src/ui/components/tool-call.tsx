@@ -9,7 +9,8 @@ const MAX_PREVIEW_LINES = 6;
 export interface ToolCallViewProps {
   readonly theme: Theme;
   readonly name: string;
-  readonly argsPreview: string;
+  /** Raw args JSON string for display when no tool-specific summary exists; may be undefined. */
+  readonly argsPreview?: string;
   readonly toolArgs?: Record<string, unknown>;
   readonly status: "running" | "completed" | "error";
   readonly durationMs?: number;
@@ -25,6 +26,7 @@ function toolIcon(name: string): string {
     case "file_read":
       return "📄";
     case "file_write":
+    case "write_file":
       return "✏️";
     case "file_edit":
       return "🔧";
@@ -57,6 +59,7 @@ function toolArgsSummary(
     case "file_read":
       return toolArgs.file_path ? String(toolArgs.file_path) : null;
     case "file_write":
+    case "write_file":
       return toolArgs.file_path ? String(toolArgs.file_path) : null;
     case "file_edit":
       return toolArgs.file_path ? String(toolArgs.file_path) : null;
@@ -188,6 +191,7 @@ function ToolResult({
     case "glob":
       return <FileListResult text={text} theme={theme} />;
     case "file_write":
+    case "write_file":
       return <WriteResult text={text} theme={theme} />;
     default:
       break;
@@ -286,9 +290,9 @@ export function ToolCallView({
           <Text color={theme.muted}>{summary}</Text>
         ) : (
           <Text color={theme.muted}>
-            {argsPreview.length > 200
-              ? `${argsPreview.slice(0, 200)}…`
-              : argsPreview}
+            {(argsPreview ?? "").length > 200
+              ? `${(argsPreview ?? "").slice(0, 200)}…`
+              : argsPreview ?? ""}
           </Text>
         )}
         {status === "error" && errorMessage && (
