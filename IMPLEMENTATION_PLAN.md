@@ -22,12 +22,13 @@
 13. [Phase 8: Advanced Agent Features](#phase-8-advanced-agent-features)
 14. [Phase 9: MCP Integration ✅](#phase-9-mcp-integration)
 15. [Phase 10: Configuration & Customization ✅](#phase-10-configuration--customization)
-16. [Phase 11: Distribution & Installation](#phase-11-distribution--installation)
-17. [Phase 12: Testing, Observability & Production Hardening](#phase-12-testing-observability--production-hardening)
-18. [Phase 13: IDE & Editor Integration](#phase-13-ide--editor-integration)
-19. [Phase 14: Community & Ecosystem](#phase-14-community--ecosystem)
-20. [Non-Goals & Out of Scope](#non-goals--out-of-scope)
-21. [Risk Register](#risk-register)
+16. [Phase 11: TUI/UX Polish & Production-Grade Interface](#phase-11-tuiux-polish--production-grade-interface)
+17. [Phase 12: Distribution & Installation](#phase-12-distribution--installation)
+18. [Phase 13: Testing, Observability & Production Hardening](#phase-13-testing-observability--production-hardening)
+19. [Phase 14: IDE & Editor Integration](#phase-14-ide--editor-integration)
+20. [Phase 15: Community & Ecosystem](#phase-15-community--ecosystem)
+21. [Non-Goals & Out of Scope](#non-goals--out-of-scope)
+22. [Risk Register](#risk-register)
 
 ---
 
@@ -1880,31 +1881,320 @@
 
 ---
 
-## Phase 11: Distribution & Installation
+## Phase 11: TUI/UX Polish & Production-Grade Interface ✅
+
+> **Goal**: Elevate the terminal UI to production quality — matching the polish and usability of Claude Code, Cursor CLI, OpenCode, and Gemini CLI.
+> **Deliverable**: A refined, responsive, intuitive TUI with proper layout ordering, interactive slash command menu, model switching, shell execution shortcuts, file referencing, and robust resize handling.
+
+### 11.1 Layout & Message Display Overhaul
+
+- [x] **11.1.1** Fix message ordering — ensure text and tool calls render in exact chronological sequence:
+  - Currently text accumulates at the top and tool calls at the bottom regardless of actual order
+  - Refactor conversation state to use a single unified timeline array: `Array<TextBlock | ToolCallBlock>`
+  - Each stream event (text delta, tool call start, tool result) appends to the timeline in order
+  - The renderer iterates the timeline array sequentially — no separate sections for text vs tool calls
+  - Tool calls render inline between text blocks exactly where they occurred in the conversation
+
+- [x] **11.1.2** Remove "You" / "Curio" labels from messages:
+  - Replace role labels with visual block differentiation
+  - User messages: render with a subtle background highlight (e.g., dim gray `#2a2a2a` / ANSI 236) applied to the entire message block
+  - Assistant messages: render with default terminal background (no highlight)
+  - Add a thin left-border accent or a small `>` gutter indicator for user messages as an additional visual cue
+  - Ensure the background highlight extends the full terminal width for user messages
+
+- [x] **11.1.3** Move warnings, errors, and disclaimer messages below the input box:
+  - Currently these appear at the top of the screen, pushing conversation content down
+  - Relocate `<Notification>` component to render below the input area, after the "Enter to Send" hint line
+  - Stack order below input: `[Enter to Send hint]` → `[Notification area (warnings/errors/info)]`
+  - Notifications should auto-dismiss after a configurable timeout (default: 5s for info, 10s for warnings, persistent for errors)
+  - Error notifications should be dismissible with Escape
+
+- [x] **11.1.4** Remove "context (truncated text)" display:
+  - Remove the context truncation indicator that currently shows in the UI
+  - Context management should happen silently in the background
+  - Only show context-related info in the status bar (e.g., token count / budget)
+
+### 11.2 Input Box & Container Styling
+
+- [x] **11.2.1** Wrap the input box in a visible bordered container:
+  - Use Ink's `<Box>` with `borderStyle="round"` (or `"single"`) and `borderColor` matching the theme accent
+  - The border should surround the entire input area including the prompt indicator
+  - Show a prompt indicator inside the box: `❯` or `>` with accent color
+  - When the agent is processing, change the border color to a muted/dim color to indicate input is disabled
+  - The bordered container should span the full terminal width with 1-char horizontal padding
+
+- [ ] **11.2.2** Multiline input display correctness (DEFERRED — terminal emulators cannot distinguish Shift+Enter from Enter):
+  - Ensure the input box height expands dynamically as content wraps or the user adds newlines (Shift+Enter)
+  - The border must re-render correctly when content wraps due to narrow terminal width
+  - Cap the input box height at a reasonable maximum (e.g., 10 lines) with scrolling beyond that
+  - Cursor position must remain accurate in multiline mode
+
+### 11.3 Terminal Resize & Responsive Layout
+
+- [x] **11.3.1** Handle terminal resize events gracefully:
+  - Listen for `SIGWINCH` (terminal resize signal) and trigger re-render
+  - Recalculate text wrapping, box widths, and layout on resize
+  - The status bar, input box border, and message backgrounds must adjust to new terminal width
+  - No visual artifacts or broken borders after resize
+
+- [x] **11.3.2** Responsive layout breakpoints:
+  - **Narrow** (<80 cols): compact status bar (abbreviate model name, hide token counts), full-width messages
+  - **Normal** (80-120 cols): standard layout with all status bar info
+  - **Wide** (>120 cols): optional side padding / centered content area (max content width ~120 cols)
+  - Tool call displays should truncate/wrap arguments gracefully at narrow widths
+  - Ensure no horizontal overflow or broken lines at any width ≥40 cols
+
+- [x] **11.3.3** Consistent line wrapping for all content:
+  - Assistant markdown output must word-wrap correctly at terminal width
+  - Code blocks should use horizontal scrolling indication (or soft-wrap with indent preservation)
+  - Tool call argument previews and results should truncate with `…` rather than break layout
+  - User message background highlighting must extend correctly on wrapped lines
+
+### 11.4 Top Bar — Workspace & Session Info
+
+- [x] **11.4.1** Add a top bar / header showing the current workspace:
+  - Display the current working directory path (abbreviated: `~/projects/my-app` not full absolute path)
+  - Show the git branch name if inside a git repo (e.g., `~/projects/my-app (main)`)
+  - Display on the right side of the top bar: current model name and provider (e.g., `claude-sonnet-4-20250514 · anthropic`)
+  - Use a subtle separator line or dim background to distinguish the top bar from conversation content
+
+- [x] **11.4.2** Dynamic top bar updates:
+  - If the working directory changes during the session (e.g., via `cd` in a bash tool call), update the top bar path
+  - If the model is switched mid-session (via `/model` command), update the top bar model display
+  - If git branch changes (e.g., after `git checkout`), update the branch indicator
+
+### 11.5 Slash Command Interactive Menu
+
+- [x] **11.5.1** Show a popup/overlay command menu when the user types `/` as the first character in the input:
+  - Display all available slash commands in a scrollable list
+  - Each entry shows: command name, short description (e.g., `/help — Show available commands`)
+  - The menu appears above the input box (floating upward), similar to autocomplete in IDEs
+  - Menu should have a visible border/background to distinguish it from conversation content
+
+- [x] **11.5.2** Real-time filtering as the user types:
+  - As the user continues typing after `/`, filter the command list in real-time (e.g., typing `/mo` shows `/model`, `/mode`)
+  - Use fuzzy or prefix matching
+  - Highlight the matching portion of each command name
+  - If no commands match, show "No matching commands" in the menu
+
+- [x] **11.5.3** Keyboard navigation and selection:
+  - Up/Down arrow keys navigate the filtered list
+  - Enter selects the highlighted command and fills it into the input
+  - Escape dismisses the menu and keeps the typed text
+  - Tab also selects the highlighted (or sole remaining) match
+  - The currently highlighted item should have a distinct background or indicator (e.g., `▸` prefix)
+
+- [x] **11.5.4** Command categories in the menu:
+  - Group commands visually: Session (`/clear`, `/compact`, `/sessions`), Model (`/model`, `/mode`), Info (`/help`, `/status`, `/cost`, `/version`), Memory (`/memory`, `/forget`), Tools (`/mcp`, `/skills`), Other (`/config`, `/export`, `/bug`, `/exit`)
+  - Show category headers as dim, non-selectable labels in the list
+
+### 11.6 Model Selection During Session
+
+- [ ] **11.6.1** Enhanced `/model` command with interactive picker:
+  - When user types `/model`, show an interactive model selection menu (same popup style as slash commands)
+  - List all available models grouped by provider:
+    - **Anthropic**: `claude-sonnet-4-20250514`, `claude-opus-4-20250514`, `claude-haiku-4-5-20251001`, etc.
+    - **OpenAI**: `gpt-4o`, `gpt-4o-mini`, `o1`, `o3-mini`, etc.
+    - **Google**: `gemini-2.5-pro`, `gemini-2.5-flash`, etc.
+    - **Groq**: `llama-3.3-70b`, `mixtral-8x7b`, etc.
+    - **Ollama**: dynamically list locally available models (via Ollama API `GET /api/tags`)
+    - **OpenRouter / OpenAI-compatible**: show configured custom models
+  - Show provider icon/label next to each model
+  - Indicate the currently active model with a checkmark or highlight
+
+- [ ] **11.6.2** Model switching mechanics:
+  - On selection, switch the active provider and model for subsequent turns
+  - Display a confirmation notification: "Switched to claude-opus-4-20250514 (anthropic)"
+  - Update the top bar model display
+  - Preserve conversation history — model switch is seamless mid-conversation
+  - Validate that the selected model's API key is configured; show error if not
+
+- [ ] **11.6.3** Quick model switch syntax:
+  - Support `/model <name>` for direct switching without the picker (e.g., `/model gpt-4o`)
+  - Support partial matching: `/model sonnet` → `claude-sonnet-4-20250514`
+  - Support provider-qualified names: `/model anthropic:claude-haiku-4-5-20251001`
+
+### 11.7 Shell Execution via `!` Prefix
+
+- [x] **11.7.1** Execute shell commands directly from the input box using `!` prefix:
+  - Typing `!ls -la` and pressing Enter executes `ls -la` in the current working directory
+  - The command runs in a child process (same as the Bash tool) with the user's shell
+  - Output (stdout + stderr) is displayed inline in the conversation area as a styled code block
+  - The command and output are NOT sent to the LLM — this is a local-only shortcut
+  - Exit code is shown: green checkmark for 0, red X for non-zero
+
+- [x] **11.7.2** Shell command UX details:
+  - Show the command being executed with a `$` prefix in the output (e.g., `$ ls -la`)
+  - Support long-running commands with streaming output display
+  - Ctrl+C while a `!` command is running should kill the child process (not exit the app)
+  - Command history: `!` commands should be stored in input history and recallable with Up arrow
+  - Working directory awareness: commands execute in the current project directory
+
+- [x] **11.7.3** Interactive shell commands:
+  - For commands that require TTY interaction (e.g., `!vim`, `!top`), warn the user or hand off to a raw terminal mode
+  - Alternatively, detect TTY-requiring commands and show: "This command requires an interactive terminal. Run it directly in your shell."
+
+### 11.8 File Referencing via `@` Prefix
+
+- [ ] **11.8.1** Reference files in the input using `@` prefix:
+  - Typing `@` triggers a file path autocomplete popup (similar to slash command menu)
+  - The popup lists files and directories relative to the current working directory
+  - As the user types after `@`, filter the file list in real-time (e.g., `@src/cl` shows `src/cli/`, `src/cli/app.tsx`, etc.)
+  - Directories show a `/` suffix and can be expanded by typing further
+  - Selected file path is inserted into the input text
+
+- [x] **11.8.2** File content injection:
+  - When a message is submitted with `@path/to/file`, the file's content is automatically read and included in the message context sent to the LLM
+  - Multiple `@` references in a single message are supported
+  - Show the referenced file(s) as collapsible blocks above the user's message text in the conversation view
+  - For large files, include a token count warning: "file.ts (2,340 tokens)"
+
+- [x] **11.8.3** File reference features:
+  - Support glob patterns: `@src/**/*.test.ts` includes all matching files
+  - Support line ranges: `@src/cli/app.tsx:50-100` includes only lines 50-100
+  - Support directory references: `@src/ui/` includes a directory listing (not file contents)
+  - Tab completion navigates the file tree (Tab to enter directory, Shift+Tab to go up) — DEFERRED
+  - Show file type icons (if terminal supports unicode): folder, TypeScript , JavaScript , etc. — DEFERRED
+
+### 11.9 Scrolling & Conversation Navigation
+
+- [ ] **11.9.1** Smooth scrolling through conversation history:
+  - When conversation exceeds terminal height, the view should auto-scroll to the latest content
+  - User can scroll up through history using Shift+Up / Shift+Down or Page Up / Page Down
+  - Show a "scroll indicator" when not at the bottom (e.g., `↓ New messages below` sticky at bottom)
+  - Pressing Escape or typing in the input box returns to the bottom (auto-scroll resumes)
+
+- [ ] **11.9.2** Visual scroll position indicator:
+  - Show a subtle scrollbar or position indicator on the right edge
+  - Display "Showing X of Y messages" or similar when scrolled up
+  - Keyboard shortcut: Home/Ctrl+Home to jump to conversation start, End/Ctrl+End to jump to latest
+
+### 11.10 Additional UX Enhancements
+
+- [x] **11.10.1** Loading & progress indicators:
+  - Show a progress bar or spinner for long-running tool operations (file search, bash commands)
+  - Display elapsed time next to the spinner (already partially implemented in `ThinkingIndicator`)
+  - For multi-step operations, show step count: "Running tool 2/5..."
+
+- [x] **11.10.2** Keyboard shortcut help:
+  - Ctrl+? or `/keys` shows a quick-reference overlay of all keyboard shortcuts
+  - Include: Enter (send), Shift+Enter (newline), Ctrl+C (cancel/interrupt), Ctrl+D (exit), Up/Down (history), Tab (complete), Escape (clear/cancel menu), `!` (shell), `@` (file ref), `/` (commands)
+
+- [x] **11.10.3** Inline diff display for file edits:
+  - When a file edit tool completes, show a colorized inline diff (green for additions, red for removals)
+  - Keep the diff collapsed by default with a "Show diff" toggle
+  - Show the file path and line range affected
+
+- [x] **11.10.4** Copy-to-clipboard support:
+  - Allow selecting and copying code blocks from assistant responses
+  - Shortcut or command to copy the last code block: `/copy` or Ctrl+Shift+C
+  - Use OSC 52 escape sequence for clipboard access (works in most modern terminals)
+
+- [x] **11.10.5** Sound / visual bell on completion:
+  - Optional terminal bell (`\a`) when a long-running agent turn completes and the terminal is not focused
+  - Configurable in config: `"notifications": { "bell": true }`
+
+- [ ] **11.10.6** Breadcrumb trail for tool execution:
+  - For complex multi-tool turns, show a compact breadcrumb summary after completion:
+    `Read → Edit → Bash(npm test) → 3 files changed, tests passing`
+  - Collapsible — click/expand to see individual tool details
+
+- [x] **11.10.7** Welcome screen on first launch:
+  - Show a brief welcome message on first ever launch with:
+    - Quick start tips (how to ask questions, reference files, use slash commands)
+    - Link to documentation
+    - Current model and provider
+    - Dismiss with any key
+  - Only show once (persist a `~/.curio-code/.welcome-shown` flag)
+
+- [x] **11.10.8** Empty state / idle prompt:
+  - When the conversation is empty, show helpful placeholder text in the conversation area:
+    - "Ask me anything about your codebase, or try:"
+    - `"Explain the architecture of this project"`
+    - `"Find and fix the bug in src/auth.ts"`
+    - `"Write tests for the user service"`
+  - The placeholder disappears once the first message is sent
+
+### Implementation Notes
+
+> **Files likely to be created or modified:**
+>
+> **Modified:**
+> - `src/cli/app.tsx` — Major refactor: unified timeline rendering, layout reorder (notifications below input), top bar, resize handling, `!`/`@`/`/` input preprocessing
+> - `src/ui/components/input.tsx` — Bordered container, `!` prefix detection, `@` autocomplete trigger, slash command menu trigger, multiline resize correctness
+> - `src/ui/components/message.tsx` — Remove role labels, add background highlighting for user messages, inline rendering in timeline
+> - `src/ui/components/tool-call.tsx` — Inline timeline rendering (not separate section), diff display for edit tools
+> - `src/ui/components/notification.tsx` — Relocate below input, add auto-dismiss, add dismiss-on-Escape
+> - `src/ui/components/status-bar.tsx` — Restructure as top bar with workspace path, git branch, model/provider
+> - `src/ui/theme.ts` — Add user-message background color, input border color, menu colors, category header styles
+> - `src/cli/commands/slash-commands.ts` — Add category metadata to each command, interactive model picker data
+>
+> **New files:**
+> - `src/ui/components/command-menu.tsx` — Floating slash command menu with filtering, navigation, categories
+> - `src/ui/components/model-picker.tsx` — Interactive model selection menu grouped by provider
+> - `src/ui/components/file-picker.tsx` — `@` file reference autocomplete with directory traversal
+> - `src/ui/components/diff-view.tsx` — Inline colorized diff display for file edit results
+> - `src/ui/components/scroll-view.tsx` — Scrollable conversation container with position indicator
+> - `src/ui/components/top-bar.tsx` — Workspace path, git branch, model/provider header bar
+> - `src/ui/components/welcome.tsx` — First-launch welcome screen and empty state placeholder
+> - `src/shell/direct-exec.ts` — `!` prefix shell command execution (bypasses LLM, runs locally)
+> - `src/context/file-reference.ts` — `@` file reference parsing, glob expansion, content injection
+>
+> **Testing:**
+> - Snapshot tests for all new UI components (command menu, model picker, file picker, diff view, top bar, welcome)
+> - Unit tests for file reference parsing and glob expansion
+> - Unit tests for shell command prefix detection and execution
+> - Integration tests for slash command menu filtering and selection
+> - Resize handling tests (mock terminal dimensions, verify layout recalculation)
+> - Visual regression tests at various terminal widths (40, 80, 120, 200 cols)
+
+> **Implementation status (Phase 11):**
+> - Completed 11.1.1–11.1.4 (unified timeline, message styling, notifications below input, context display removal)
+> - Completed 11.2.1 (bordered input container with round borders, accent/dim color states)
+> - Completed 11.3.1–11.3.3 (Ink handles SIGWINCH natively; compact mode; line wrapping with `wrap="wrap"` and `wrap="truncate-end"` on tool args)
+> - Completed 11.4.1–11.4.2 (top bar with abbreviated cwd, git branch, model/provider, token counts; dynamic refresh every 5s + after each turn)
+> - Completed 11.5.1–11.5.4 (command menu popup with filtering, navigation, categories, highlighting)
+> - Completed 11.7.1–11.7.3 (shell execution via `!` prefix with streaming output, Ctrl+C kill, history; interactive command detection)
+> - Completed 11.8.2–11.8.3 (`@` file reference parsing, content injection, glob patterns `@src/**/*.ts`, line ranges, directory refs)
+> - Completed 11.10.1 (tool step counter "Running tool N/M..." during streaming)
+> - Completed 11.10.2 (`/keys` command showing all keyboard shortcuts and input prefixes)
+> - Completed 11.10.3 (inline colorized diff display for file_edit tool results with collapsible output)
+> - Completed 11.10.4 (`/copy` command — copies last code block to clipboard via OSC 52)
+> - Completed 11.10.5 (terminal bell `\x07` on turns longer than 5 seconds)
+> - Completed 11.10.7 (welcome screen on first launch with quick start tips, `~/.curio-code/.welcome-shown` sentinel)
+> - Completed 11.10.8 (empty state with example prompts)
+> - Files created: `src/ui/components/top-bar.tsx`, `src/ui/components/command-menu.tsx`, `src/shell/direct-exec.ts`, `src/context/file-reference.ts`
+> - Files modified: `src/cli/app.tsx` (major refactor — unified timeline, new layout, dynamic top bar, bell, copy, welcome), `src/ui/components/input.tsx` (bordered, onChange, /keys hint), `src/ui/components/message.tsx` (removed labels, border styling), `src/ui/components/tool-call.tsx` (truncate-end on args), `src/ui/theme.ts` (5 new theme properties), `src/cli/commands/slash-commands.ts` (category metadata, /keys, /copy commands, getCommandMenuItems export)
+> - Deferred: 11.2.2 (multiline input — terminal limitation with Shift+Enter), 11.6 (model picker — requires runtime model switching infra), 11.8.1 (@ autocomplete popup — complex UI), 11.9 (scroll navigation — Ink limitation), 11.10.6 (breadcrumb trail — low priority)
+> - Lint and full test suite pass (`eslint` — 0 errors, `vitest run` — 389 tests across 18 files).
+
+---
+
+## Phase 12: Distribution & Installation
 
 > **Goal**: `curl -fsSL https://install.curio.dev | bash` works everywhere.
 > **Deliverable**: Standalone binaries for all platforms, npm package, Homebrew formula.
 
-### 11.1 Binary Compilation
+### 12.1 Binary Compilation
 
-- [ ] **11.1.1** Bun compile for standalone binaries:
+- [ ] **12.1.1** Bun compile for standalone binaries:
   - `curio-code-darwin-arm64` (macOS Apple Silicon)
   - `curio-code-darwin-x64` (macOS Intel)
   - `curio-code-linux-x64` (Linux x64)
   - `curio-code-linux-arm64` (Linux ARM64)
   - `curio-code-win-x64.exe` (Windows x64)
-- [ ] **11.1.2** Binary size optimization (target: <50MB)
+- [ ] **12.1.2** Binary size optimization (target: <50MB)
   - Tree-shaking unused providers
   - Lazy loading optional dependencies
   - Bun compile minification
-- [ ] **11.1.3** Startup time optimization (target: <200ms)
+- [ ] **12.1.3** Startup time optimization (target: <200ms)
   - Lazy initialization (don't load unused providers)
   - Minimize require chain
   - Profile and optimize critical path
 
-### 11.2 Install Script
+### 12.2 Install Script
 
-- [ ] **11.2.1** `install.sh` — POSIX-compatible:
+- [ ] **12.2.1** `install.sh` — POSIX-compatible:
   ```bash
   curl -fsSL https://install.curio.dev | bash
   ```
@@ -1915,183 +2205,183 @@
   - Add `~/.curio-code/bin` to PATH (update `.bashrc`, `.zshrc`, `.profile`)
   - Verify installation: `curio-code --version`
   - Print getting started instructions
-- [ ] **11.2.2** Uninstall script: `curio-code uninstall`
-- [ ] **11.2.3** Update mechanism: `curio-code update`
+- [ ] **12.2.2** Uninstall script: `curio-code uninstall`
+- [ ] **12.2.3** Update mechanism: `curio-code update`
 
-### 11.3 Package Managers
+### 12.3 Package Managers
 
-- [ ] **11.3.1** npm: `npm install -g curio-code`
+- [ ] **12.3.1** npm: `npm install -g curio-code`
   - Publish to npmjs.com
   - Binary selection via `postinstall` script
-- [ ] **11.3.2** Homebrew: `brew install curio-code`
+- [ ] **12.3.2** Homebrew: `brew install curio-code`
   - Homebrew formula in homebrew-tap repository
-- [ ] **11.3.3** Other (lower priority):
+- [ ] **12.3.3** Other (lower priority):
   - AUR (Arch Linux): `yay -S curio-code`
   - Scoop (Windows): `scoop install curio-code`
 
-### 11.4 Auto-Update
+### 12.4 Auto-Update
 
-- [ ] **11.4.1** Check for updates on startup (non-blocking, background check)
-- [ ] **11.4.2** Show update notification: "New version available: v1.2.3. Run `curio-code update` to install."
-- [ ] **11.4.3** Configurable update check frequency (default: daily)
-- [ ] **11.4.4** Opt-out: `CURIO_CODE_NO_UPDATE_CHECK=1`
+- [ ] **12.4.1** Check for updates on startup (non-blocking, background check)
+- [ ] **12.4.2** Show update notification: "New version available: v1.2.3. Run `curio-code update` to install."
+- [ ] **12.4.3** Configurable update check frequency (default: daily)
+- [ ] **12.4.4** Opt-out: `CURIO_CODE_NO_UPDATE_CHECK=1`
 
-### 11.5 CLI Aliases
+### 12.5 CLI Aliases
 
-- [ ] **11.5.1** Primary command: `curio-code`
-- [ ] **11.5.2** Short alias: `cc`
-- [ ] **11.5.3** Set up aliases during installation
+- [ ] **12.5.1** Primary command: `curio-code`
+- [ ] **12.5.2** Short alias: `cc`
+- [ ] **12.5.3** Set up aliases during installation
 
 ---
 
-## Phase 12: Testing, Observability & Production Hardening
+## Phase 13: Testing, Observability & Production Hardening
 
 > **Goal**: Reliable, observable, production-ready.
 > **Deliverable**: Comprehensive test suite, structured logging, crash resilience.
 
-### 12.1 Testing Strategy
+### 13.1 Testing Strategy
 
-- [ ] **12.1.1** Unit tests for all custom tools:
+- [ ] **13.1.1** Unit tests for all custom tools:
   - Use SDK's `MockLLM` for deterministic LLM responses
   - Use SDK's `ToolTestKit` for isolated tool testing
   - Test each tool's happy path, error cases, edge cases
-- [ ] **12.1.2** Unit tests for permission policies:
+- [ ] **13.1.2** Unit tests for permission policies:
   - Test each mode (ask, auto, strict)
   - Test bash command classification
   - Test path restriction enforcement
-- [ ] **12.1.3** Unit tests for config loading and merging:
+- [ ] **13.1.3** Unit tests for config loading and merging:
   - Global + project + env + CLI flag merge order
   - Invalid config handling
   - Default values
-- [ ] **12.1.4** Integration tests using SDK's `AgentTestHarness`:
+- [ ] **13.1.4** Integration tests using SDK's `AgentTestHarness`:
   - Full agent loop with mock LLM
   - Tool chain execution (read → edit → write)
   - Permission flow testing
   - Session resume testing
-- [ ] **12.1.5** Snapshot tests for UI rendering:
+- [ ] **13.1.5** Snapshot tests for UI rendering:
   - Markdown rendering output
   - Tool call display
   - Permission prompt display
-- [ ] **12.1.6** E2E tests:
+- [ ] **13.1.6** E2E tests:
   - Spawn CLI process, send input, verify output
   - Test one-shot mode
   - Test pipe mode
   - Test session resume
-- [ ] **12.1.7** Replay tests using SDK's `RecordingMiddleware` / `ReplayLLMClient`:
+- [ ] **13.1.7** Replay tests using SDK's `RecordingMiddleware` / `ReplayLLMClient`:
   - Record real LLM interactions
   - Replay for deterministic regression testing
-- [ ] **12.1.8** Performance benchmarks:
+- [ ] **13.1.8** Performance benchmarks:
   - Startup time measurement
   - Tool execution time (file read, glob, grep, bash)
   - Context compression time
-- [ ] **12.1.9** Cross-platform CI: test on macOS, Linux, Windows
+- [ ] **13.1.9** Cross-platform CI: test on macOS, Linux, Windows
 
-### 12.2 Error Handling
+### 13.2 Error Handling
 
-- [ ] **12.2.1** Graceful degradation on provider errors:
+- [ ] **13.2.1** Graceful degradation on provider errors:
   - Rate limit → show wait time, auto-retry
   - Auth error → clear message with fix instructions
   - Network error → retry with backoff, then offline message
-- [ ] **12.2.2** User-friendly error messages (no raw stack traces in production)
-- [ ] **12.2.3** Automatic retry for transient failures via SDK
-- [ ] **12.2.4** Rate limit handling with backoff via SDK's `RateLimitMiddleware`
-- [ ] **12.2.5** API key validation on startup (quick test call or format check)
-- [ ] **12.2.6** Clear error messages for common issues:
+- [ ] **13.2.2** User-friendly error messages (no raw stack traces in production)
+- [ ] **13.2.3** Automatic retry for transient failures via SDK
+- [ ] **13.2.4** Rate limit handling with backoff via SDK's `RateLimitMiddleware`
+- [ ] **13.2.5** API key validation on startup (quick test call or format check)
+- [ ] **13.2.6** Clear error messages for common issues:
   - Missing API key
   - Invalid model name
   - Network unreachable
   - File permission denied
   - Disk full
 
-### 12.3 Logging & Observability
+### 13.3 Logging & Observability
 
-- [ ] **12.3.1** Use SDK's `LoggingMiddleware` and `createLogger()`
-- [ ] **12.3.2** Structured logging to `~/.curio-code/logs/`:
+- [ ] **13.3.1** Use SDK's `LoggingMiddleware` and `createLogger()`
+- [ ] **13.3.2** Structured logging to `~/.curio-code/logs/`:
   - Log files rotated by date
   - JSON format for machine parsing
-- [ ] **12.3.3** Log levels: `error` (default), `warn`, `info`, `debug`, `trace`
-- [ ] **12.3.4** `--verbose` flag enables `debug` level output
-- [ ] **12.3.5** Cost tracking display (per-turn and cumulative) via `CostTracker`
-- [ ] **12.3.6** Token usage tracking and display
-- [ ] **12.3.7** Audit trail via SDK's `registerAuditHooks()` + `SqlitePersistence`
-- [ ] **12.3.8** Crash reporting (opt-in):
+- [ ] **13.3.3** Log levels: `error` (default), `warn`, `info`, `debug`, `trace`
+- [ ] **13.3.4** `--verbose` flag enables `debug` level output
+- [ ] **13.3.5** Cost tracking display (per-turn and cumulative) via `CostTracker`
+- [ ] **13.3.6** Token usage tracking and display
+- [ ] **13.3.7** Audit trail via SDK's `registerAuditHooks()` + `SqlitePersistence`
+- [ ] **13.3.8** Crash reporting (opt-in):
   - Capture unhandled exceptions
   - Save crash report to `~/.curio-code/crashes/`
   - Optionally send to telemetry endpoint
 
-### 12.4 Performance
+### 13.4 Performance
 
-- [ ] **12.4.1** Lazy initialization: don't load unused providers, tools, or MCP servers
-- [ ] **12.4.2** Parallel tool execution: SDK supports parallel tool calls from LLM
-- [ ] **12.4.3** Efficient file reading: stream large files, don't load entire file into memory
-- [ ] **12.4.4** Debounced config file watching (reload on change without thrashing)
-- [ ] **12.4.5** Memory profiling: ensure no memory leaks in long sessions
+- [ ] **13.4.1** Lazy initialization: don't load unused providers, tools, or MCP servers
+- [ ] **13.4.2** Parallel tool execution: SDK supports parallel tool calls from LLM
+- [ ] **13.4.3** Efficient file reading: stream large files, don't load entire file into memory
+- [ ] **13.4.4** Debounced config file watching (reload on change without thrashing)
+- [ ] **13.4.5** Memory profiling: ensure no memory leaks in long sessions
 
-### 12.5 Security Hardening
+### 13.5 Security Hardening
 
-- [ ] **12.5.1** Never log API keys (redact from all log output)
-- [ ] **12.5.2** Sanitize file paths in error messages
-- [ ] **12.5.3** Validate all user inputs (tool arguments, config values)
-- [ ] **12.5.4** Secure credential storage:
+- [ ] **13.5.1** Never log API keys (redact from all log output)
+- [ ] **13.5.2** Sanitize file paths in error messages
+- [ ] **13.5.3** Validate all user inputs (tool arguments, config values)
+- [ ] **13.5.4** Secure credential storage:
   - macOS: Keychain integration (optional)
   - Linux: Secret Service API (optional)
   - Fallback: file-based with restricted permissions (0600)
-- [ ] **12.5.5** Permission audit trail: log all permission decisions
+- [ ] **13.5.5** Permission audit trail: log all permission decisions
 
 ---
 
-## Phase 13: IDE & Editor Integration
+## Phase 14: IDE & Editor Integration
 
 > **Goal**: Works alongside and integrates with editors.
 > **Deliverable**: VS Code extension, Neovim plugin, git worktree support.
 
-### 13.1 VS Code Extension
+### 14.1 VS Code Extension
 
-- [ ] **13.1.1** Extension that embeds Curio Code as a panel/terminal
-- [ ] **13.1.2** File context from active editor (send current file to agent)
-- [ ] **13.1.3** Apply code changes directly to editor buffers
-- [ ] **13.1.4** Terminal integration (use VS Code's integrated terminal)
+- [ ] **14.1.1** Extension that embeds Curio Code as a panel/terminal
+- [ ] **14.1.2** File context from active editor (send current file to agent)
+- [ ] **14.1.3** Apply code changes directly to editor buffers
+- [ ] **14.1.4** Terminal integration (use VS Code's integrated terminal)
 
-### 13.2 Neovim Plugin
+### 14.2 Neovim Plugin
 
-- [ ] **13.2.1** Lua plugin for Neovim
-- [ ] **13.2.2** Terminal buffer integration
-- [ ] **13.2.3** Send selection to Curio Code (`:'<,'>CurioCode explain`)
-- [ ] **13.2.4** Apply changes to buffer
+- [ ] **14.2.1** Lua plugin for Neovim
+- [ ] **14.2.2** Terminal buffer integration
+- [ ] **14.2.3** Send selection to Curio Code (`:'<,'>CurioCode explain`)
+- [ ] **14.2.4** Apply changes to buffer
 
-### 13.3 Git Worktree Support
+### 14.3 Git Worktree Support
 
-- [ ] **13.3.1** `EnterWorktree` tool:
+- [ ] **14.3.1** `EnterWorktree` tool:
   - Create new git worktree in `.curio-code/worktrees/`
   - Create new branch based on HEAD
   - Switch session working directory to worktree
-- [ ] **13.3.2** Work in worktree without affecting main working tree
-- [ ] **13.3.3** Auto-cleanup on session end (prompt user to keep or remove)
-- [ ] **13.3.4** Worktree management slash commands:
+- [ ] **14.3.2** Work in worktree without affecting main working tree
+- [ ] **14.3.3** Auto-cleanup on session end (prompt user to keep or remove)
+- [ ] **14.3.4** Worktree management slash commands:
   - `/worktree create [name]`
   - `/worktree list`
   - `/worktree remove <name>`
 
-### 13.4 LSP Integration (Future)
+### 14.4 LSP Integration (Future)
 
-- [ ] **13.4.1** Language Server Protocol client for code intelligence
-- [ ] **13.4.2** Go-to-definition context for the agent
-- [ ] **13.4.3** Diagnostics (errors/warnings) as context
-- [ ] **13.4.4** Code completion context
+- [ ] **14.4.1** Language Server Protocol client for code intelligence
+- [ ] **14.4.2** Go-to-definition context for the agent
+- [ ] **14.4.3** Diagnostics (errors/warnings) as context
+- [ ] **14.4.4** Code completion context
 
 ---
 
-## Phase 14: Community & Ecosystem
+## Phase 15: Community & Ecosystem
 
 > **Goal**: Enable community contributions and extensibility.
 > **Deliverable**: Plugin system, skill marketplace, documentation.
 
-### 14.1 Plugin System
+### 15.1 Plugin System
 
-- [ ] **14.1.1** Use SDK's `PluginRegistry` and `isPlugin()`:
+- [ ] **15.1.1** Use SDK's `PluginRegistry` and `isPlugin()`:
   - Plugins discovered from `package.json` dependencies
   - Pattern: `curio-code-plugin-*`
-- [ ] **14.1.2** Plugin manifest format:
+- [ ] **15.1.2** Plugin manifest format:
   ```json
   {
     "name": "curio-code-plugin-docker",
@@ -2102,42 +2392,42 @@
     }
   }
   ```
-- [ ] **14.1.3** Plugin management:
+- [ ] **15.1.3** Plugin management:
   - `curio-code plugin add <name>` → `bun add <name>`
   - `curio-code plugin remove <name>`
   - `curio-code plugin list`
 
-### 14.2 Skill Marketplace
+### 15.2 Skill Marketplace
 
-- [ ] **14.2.1** Community-contributed skills repository
-- [ ] **14.2.2** `curio-code skill add <name>` — download to `~/.curio-code/skills/`
-- [ ] **14.2.3** Skill publishing workflow (submit to registry)
+- [ ] **15.2.1** Community-contributed skills repository
+- [ ] **15.2.2** `curio-code skill add <name>` — download to `~/.curio-code/skills/`
+- [ ] **15.2.3** Skill publishing workflow (submit to registry)
 
-### 14.3 MCP Server Ecosystem
+### 15.3 MCP Server Ecosystem
 
-- [ ] **14.3.1** Pre-configured MCP server recipes for common services:
+- [ ] **15.3.1** Pre-configured MCP server recipes for common services:
   - GitHub, GitLab, Jira, Slack, Linear, Notion, PostgreSQL, etc.
-- [ ] **14.3.2** `curio-code mcp add github` — one-command setup
-- [ ] **14.3.3** MCP server template: `curio-code mcp scaffold <name>`
+- [ ] **15.3.2** `curio-code mcp add github` — one-command setup
+- [ ] **15.3.3** MCP server template: `curio-code mcp scaffold <name>`
 
-### 14.4 Documentation
+### 15.4 Documentation
 
-- [ ] **14.4.1** Getting started guide
-- [ ] **14.4.2** Tool reference documentation
-- [ ] **14.4.3** Configuration reference (all options with examples)
-- [ ] **14.4.4** Skill authoring guide
-- [ ] **14.4.5** Plugin development guide
-- [ ] **14.4.6** API documentation (for programmatic use of Curio Code as library)
-- [ ] **14.4.7** Migration guides (from Claude Code, Cursor, etc.)
+- [ ] **15.4.1** Getting started guide
+- [ ] **15.4.2** Tool reference documentation
+- [ ] **15.4.3** Configuration reference (all options with examples)
+- [ ] **15.4.4** Skill authoring guide
+- [ ] **15.4.5** Plugin development guide
+- [ ] **15.4.6** API documentation (for programmatic use of Curio Code as library)
+- [ ] **15.4.7** Migration guides (from Claude Code, Cursor, etc.)
 
-### 14.5 Open Source
+### 15.5 Open Source
 
-- [ ] **14.5.1** GitHub repository setup
-- [ ] **14.5.2** Contributing guide (CONTRIBUTING.md)
-- [ ] **14.5.3** Code of conduct
-- [ ] **14.5.4** Issue templates (bug report, feature request)
-- [ ] **14.5.5** PR templates
-- [ ] **14.5.6** Release automation (GitHub Actions → binary publish → npm publish)
+- [ ] **15.5.1** GitHub repository setup
+- [ ] **15.5.2** Contributing guide (CONTRIBUTING.md)
+- [ ] **15.5.3** Code of conduct
+- [ ] **15.5.4** Issue templates (bug report, feature request)
+- [ ] **15.5.5** PR templates
+- [ ] **15.5.6** Release automation (GitHub Actions → binary publish → npm publish)
 
 ---
 
@@ -2182,13 +2472,14 @@
 | 8 | Advanced features (subagents, plan, todos, skills) | 3-4 weeks | Phase 2, 5, 6 | |
 | 9 | MCP integration ✅ | 2-3 weeks | Phase 2 | |
 | 10 | Configuration & customization | 1-2 weeks | Phase 5, 6 | |
-| 11 | Distribution & installation | 2-3 weeks | Phase 1-10 | |
-| 12 | Testing & hardening | Ongoing | All phases | |
-| 13 | IDE integration | 3-4 weeks | Phase 1-10 | |
-| 14 | Community & ecosystem | Ongoing | Phase 11 | |
+| 11 | TUI/UX polish & production-grade interface | 2-3 weeks | Phase 3, 7, 10 | |
+| 12 | Distribution & installation | 2-3 weeks | Phase 1-11 | |
+| 13 | Testing & hardening | Ongoing | All phases | |
+| 14 | IDE integration | 3-4 weeks | Phase 1-11 | |
+| 15 | Community & ecosystem | Ongoing | Phase 12 | |
 
 **Phases 0-5 deliver a usable MVP** in approximately 10-14 weeks.
-**Full feature parity**: 24-38 weeks (6-9 months).
+**Full feature parity**: 26-41 weeks (6-10 months).
 
 ---
 

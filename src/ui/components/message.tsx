@@ -20,20 +20,21 @@ export function Message({
   if (!content.trim()) return null;
 
   const isUser = role === "user";
-  const label = isUser ? "You" : "Curio";
-  const labelColor = isUser ? theme.accent : theme.accentSoft;
 
-  const body =
-    role === "assistant" ? renderMarkdownToAnsi(content) : content.trimEnd();
+  if (isUser) {
+    return (
+      <Box flexDirection="column" marginBottom={1} paddingX={1} paddingY={0}
+        borderStyle="single" borderColor={theme.dim}>
+        <Text color={theme.accent} wrap="wrap">{content.trimEnd()}</Text>
+      </Box>
+    );
+  }
+
+  const body = renderMarkdownToAnsi(content);
 
   return (
-    <Box flexDirection="column" marginBottom={1}>
-      <Text color={labelColor}>
-        {label}
-        <Text color={theme.muted}>:</Text>
-      </Text>
-      <Text>{body}</Text>
+    <Box flexDirection="column" marginBottom={1} paddingLeft={1}>
+      <Text wrap="wrap">{body}</Text>
     </Box>
   );
 }
-

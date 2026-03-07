@@ -112,6 +112,12 @@ export async function handleSlashCommand(
     case "/mode":
       return handleMode(parts.slice(1), ctx);
 
+    case "/keys":
+      return handleKeys();
+
+    case "/copy":
+      return { handled: true, output: "__COPY_LAST_BLOCK__" };
+
     case "/bug":
       return { handled: true, output: "Report bugs at: https://github.com/curio-labs/curio-code/issues" };
 
@@ -138,92 +144,144 @@ export async function handleSlashCommand(
   }
 }
 
-const COMMAND_HELP: Record<string, { brief: string; detail: string }> = {
+const COMMAND_HELP: Record<string, { brief: string; detail: string; category: string }> = {
   "/help": {
     brief: "Show available commands and keybindings",
     detail: "Usage: /help [command]\nShow this help, or detailed help for a specific command.",
+    category: "Info",
   },
   "/model": {
     brief: "Show or switch model",
     detail: "Usage: /model | /model list | /model aliases\nShow current model info, list all available models, or show short aliases.",
+    category: "Model",
   },
   "/sessions": {
     brief: "List recent sessions (last 20)",
     detail: "Usage: /sessions\nShows recent sessions with ID, project, model, and timestamp.",
+    category: "Session",
   },
   "/session": {
     brief: "Session management",
     detail: "Usage: /session delete <id> | /session export <id>\nDelete or export a specific session by ID (prefix match supported).",
+    category: "Session",
   },
   "/compact": {
     brief: "Compress conversation context manually",
     detail: "Usage: /compact\nTriggers context window compression to free up token budget.",
+    category: "Session",
   },
   "/memory": {
     brief: "Show current persistent memory",
     detail: "Usage: /memory\nDisplay the contents of MEMORY.md for this project.",
+    category: "Memory",
   },
   "/forget": {
     brief: "Remove a memory",
     detail: "Usage: /forget <topic>\nRemove memory entries matching the given topic.",
+    category: "Memory",
   },
   "/tasks": {
     brief: "List all tasks with status",
     detail: "Usage: /tasks\nShow all todo items and their current status.",
+    category: "Tools",
   },
   "/task": {
     brief: "Show task details",
     detail: "Usage: /task <id>\nShow details for a specific task or background subagent.",
+    category: "Tools",
   },
   "/plan": {
     brief: "Plan mode status and control",
     detail: "Usage: /plan | /plan approve | /plan reject | /plan cancel\nShow plan mode status or approve/reject/cancel a submitted plan.",
+    category: "Tools",
   },
   "/mcp": {
     brief: "MCP server management",
     detail: "Usage: /mcp | /mcp list | /mcp add <name> <cmd> [args] | /mcp remove <name> | /mcp restart <name>\nManage Model Context Protocol server connections.",
+    category: "Tools",
   },
   "/skills": {
     brief: "List available skills",
     detail: "Usage: /skills\nShow all registered skills (built-in, user, project).",
+    category: "Tools",
   },
   "/config": {
     brief: "Show or modify configuration",
     detail: "Usage: /config | /config <key> | /config <key> <value>\nShow full config, get a specific key, or set a value.",
+    category: "Other",
   },
   "/status": {
     brief: "Show agent status",
     detail: "Usage: /status\nShow model, provider, session, tokens used, cost, and mode info.",
+    category: "Info",
   },
   "/cost": {
     brief: "Show detailed cost breakdown",
     detail: "Usage: /cost\nShow per-model, per-turn cost breakdown for this session.",
+    category: "Info",
   },
   "/export": {
     brief: "Export conversation",
     detail: "Usage: /export [format]\nExport the current conversation. Formats: markdown (default), json.",
+    category: "Other",
   },
   "/mode": {
     brief: "Show or change permission mode",
     detail: "Usage: /mode | /mode ask | /mode auto | /mode strict\nShow current permission mode or switch to a different one.",
+    category: "Model",
+  },
+  "/keys": {
+    brief: "Show keyboard shortcuts",
+    detail: "Usage: /keys\nShow a quick-reference of all keyboard shortcuts and input prefixes.",
+    category: "Info",
+  },
+  "/copy": {
+    brief: "Copy last code block to clipboard",
+    detail: "Usage: /copy\nCopies the last code block from assistant output to clipboard using OSC 52.",
+    category: "Other",
   },
   "/bug": {
     brief: "Report a bug",
     detail: "Usage: /bug\nOpens link to GitHub issues for bug reporting.",
+    category: "Other",
   },
   "/version": {
     brief: "Show version info",
     detail: `Usage: /version\nDisplays Curio Code version (currently v${VERSION}).`,
+    category: "Info",
   },
   "/clear": {
     brief: "Clear conversation history",
     detail: "Usage: /clear\nClear the screen and conversation history (system prompt retained).",
+    category: "Session",
   },
   "/exit": {
     brief: "Exit Curio Code",
     detail: "Usage: /exit or /quit\nExit the application.",
+    category: "Other",
   },
 };
+
+function handleKeys(): SlashCommandResult {
+  const lines = [
+    "Keyboard shortcuts:",
+    "",
+    "  Enter              Send message",
+    "  Up / Down          Navigate input history",
+    "  Tab                Autocomplete /commands",
+    "  Escape             Clear input / dismiss menu",
+    "  Ctrl+C             Interrupt generation or shell",
+    "  Ctrl+D             Exit Curio Code",
+    "",
+    "Input prefixes:",
+    "",
+    "  /command           Slash commands (type / to see menu)",
+    "  !command           Run shell command directly",
+    "  @path/to/file      Include file contents in context",
+    "  @file:10-20        Include specific line range",
+  ];
+  return { handled: true, output: lines.join("\n") };
+}
 
 function handleHelp(args: string[], ctx: SlashCommandContext): SlashCommandResult {
   const sub = args[0]?.toLowerCase();
@@ -976,4 +1034,19 @@ export function getSlashCommandCompletions(partial: string): string[] {
   if (!partial.startsWith("/")) return [];
 
   return allCommands.filter((cmd) => cmd.startsWith(partial.toLowerCase()));
+}
+
+/**
+ * Return all slash commands with metadata for the interactive command menu.
+ */
+export function getCommandMenuItems(): Array<{
+  command: string;
+  brief: string;
+  category: string;
+}> {
+  return Object.entries(COMMAND_HELP).map(([cmd, meta]) => ({
+    command: cmd,
+    brief: meta.brief,
+    category: meta.category,
+  }));
 }

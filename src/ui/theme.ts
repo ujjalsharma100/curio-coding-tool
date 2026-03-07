@@ -15,6 +15,16 @@ export interface Theme {
   readonly info: string;
   readonly success: string;
   readonly muted: string;
+  /** Background color for user message blocks */
+  readonly userMessageBg: string;
+  /** Border color for the input container */
+  readonly inputBorder: string;
+  /** Background color for popup menus (command menu, model picker) */
+  readonly menuBg: string;
+  /** Background color for highlighted/selected menu item */
+  readonly menuHighlight: string;
+  /** Dim/secondary text color */
+  readonly dim: string;
 }
 
 const darkTheme: Theme = {
@@ -26,6 +36,11 @@ const darkTheme: Theme = {
   info: "#60a5fa",
   success: "#4ade80",
   muted: "#6b7280",
+  userMessageBg: "#1e293b",
+  inputBorder: "#475569",
+  menuBg: "#1e293b",
+  menuHighlight: "#334155",
+  dim: "#4b5563",
 };
 
 const lightTheme: Theme = {
@@ -37,6 +52,11 @@ const lightTheme: Theme = {
   info: "#1d4ed8",
   success: "#16a34a",
   muted: "#6b7280",
+  userMessageBg: "#f1f5f9",
+  inputBorder: "#94a3b8",
+  menuBg: "#f8fafc",
+  menuHighlight: "#e2e8f0",
+  dim: "#9ca3af",
 };
 
 /* ── ANSI basic-16 fallback theme for terminals without truecolor ── */
@@ -50,6 +70,11 @@ const darkThemeBasic: Theme = {
   info: "blue",
   success: "green",
   muted: "gray",
+  userMessageBg: "gray",
+  inputBorder: "gray",
+  menuBg: "gray",
+  menuHighlight: "white",
+  dim: "gray",
 };
 
 const lightThemeBasic: Theme = {
@@ -61,6 +86,11 @@ const lightThemeBasic: Theme = {
   info: "blueBright",
   success: "green",
   muted: "gray",
+  userMessageBg: "white",
+  inputBorder: "gray",
+  menuBg: "white",
+  menuHighlight: "gray",
+  dim: "gray",
 };
 
 /* ── Color depth detection ────────────────────────────────────────── */
@@ -112,6 +142,11 @@ interface ThemeConfigFile {
   info?: string;
   success?: string;
   muted?: string;
+  userMessageBg?: string;
+  inputBorder?: string;
+  menuBg?: string;
+  menuHighlight?: string;
+  dim?: string;
 }
 
 function loadThemeConfigFile(): ThemeConfigFile | null {
@@ -135,6 +170,11 @@ function applyOverrides(base: Theme, overrides: ThemeConfigFile): Theme {
     info: overrides.info ?? base.info,
     success: overrides.success ?? base.success,
     muted: overrides.muted ?? base.muted,
+    userMessageBg: overrides.userMessageBg ?? base.userMessageBg,
+    inputBorder: overrides.inputBorder ?? base.inputBorder,
+    menuBg: overrides.menuBg ?? base.menuBg,
+    menuHighlight: overrides.menuHighlight ?? base.menuHighlight,
+    dim: overrides.dim ?? base.dim,
   };
 }
 

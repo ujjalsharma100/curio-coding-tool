@@ -8,19 +8,26 @@ export interface InputProps {
   readonly disabled?: boolean;
   readonly onSubmit: (value: string) => void;
   readonly persistedHistory?: string[];
+  readonly onChange?: (value: string) => void;
+  readonly termWidth: number;
+  /** When command menu is open, Up/Down/Tab/Enter/Escape are intercepted */
+  readonly commandMenuOpen?: boolean;
+  readonly onCommandMenuNav?: (delta: number) => void;
+  readonly onCommandMenuSelect?: () => void;
+  readonly onCommandMenuDismiss?: () => void;
 }
 
-/**
- * Simple input component:
- *
- * - Enter submits.
- * - Up/Down arrow keys move the cursor through the local + persisted history buffer.
- */
 export function Input({
   theme,
   disabled,
   onSubmit,
   persistedHistory,
+  onChange,
+  termWidth,
+  commandMenuOpen,
+  onCommandMenuNav,
+  onCommandMenuSelect,
+  onCommandMenuDismiss,
 }: InputProps): JSX.Element {
   const [value, setValue] = useState("");
   const [history, setHistory] = useState<string[]>([]);
@@ -40,6 +47,15 @@ export function Input({
     }
   }, [persistedHistory]);
 
+  // Sync value to parent only in effect so we never update App during Input's render/commit
+  useEffect(() => {
+    onChange?.(value);
+  }, [value, onChange]);
+
+  const updateValue = useCallback((newVal: string) => {
+    setValue(newVal);
+  }, []);
+
   const submit = useCallback(() => {
     const trimmed = value.trim();
     if (!trimmed) return;
@@ -53,16 +69,32 @@ export function Input({
     (input, key) => {
       if (disabled) return;
 
-      if (key.return) {
-        submit();
+      // When command menu is open, intercept nav keys
+      if (commandMenuOpen) {
+        if (key.upArrow) { onCommandMenuNav?.(-1); return; }
+        if (key.downArrow) { onCommandMenuNav?.(1); return; }
+        if (key.return || key.tab) { onCommandMenuSelect?.(); return; }
+        if (key.escape) { onCommandMenuDismiss?.(); return; }
+        // Let typing continue through to filter
+        if (key.backspace || key.delete) {
+          setValue((prev) => prev.slice(0, -1));
+          return;
+        }
+        if (input) {
+          setValue((prev) => prev + input);
+          return;
+        }
         return;
       }
+
+      if (key.return) { submit(); return; }
 
       if (key.upArrow) {
         setHistoryIndex((idx) => {
           if (history.length === 0) return null;
           const next = idx == null ? history.length - 1 : Math.max(0, idx - 1);
-          setValue(history[next] ?? "");
+          const val = history[next] ?? "";
+          setValue(val);
           return next;
         });
         return;
@@ -77,17 +109,14 @@ export function Input({
             setValue("");
             return null;
           }
-          setValue(history[next] ?? "");
+          const val = history[next] ?? "";
+          setValue(val);
           return next;
         });
         return;
       }
 
-      if (key.escape) {
-        setValue("");
-        setHistoryIndex(null);
-        return;
-      }
+      if (key.escape) { updateValue(""); setHistoryIndex(null); return; }
 
       if (key.backspace || key.delete) {
         setValue((prev) => prev.slice(0, -1));
@@ -98,7 +127,7 @@ export function Input({
         if (value.startsWith("/")) {
           const completions = getSlashCommandCompletions(value);
           if (completions.length === 1) {
-            setValue(completions[0]! + " ");
+            updateValue(completions[0]! + " ");
           }
         }
         return;
@@ -111,21 +140,25 @@ export function Input({
     { isActive: !disabled },
   );
 
-  const promptChar = disabled ? "…" : "❯";
-  const cursorChar = disabled ? "" : "▌";
+  // Always show ">" so the first character is never obscured by a "..." prompt
+  const promptChar = ">";
+  const promptColor = disabled ? theme.muted : theme.accent;
+  const borderColor = disabled ? theme.dim : theme.inputBorder;
+  const cursorChar = disabled ? "" : "\u258C";
+  // Single text node: no truncation (so no "…" on first key), cursor stays on same line
+  const valueWithCursor = value + cursorChar;
 
   return (
-    <Box flexDirection="column">
-      <Box>
-        <Text color={theme.accentSoft}>{promptChar} </Text>
+    <Box flexDirection="column" width={termWidth}>
+      <Box borderStyle="round" borderColor={borderColor} paddingX={1} width={termWidth} flexDirection="row">
+        <Text color={promptColor} bold>{promptChar} </Text>
         <Text>
-          {value}
-          {cursorChar}
+          {valueWithCursor}
         </Text>
       </Box>
-      <Box marginTop={0}>
-        <Text color={theme.muted}>
-          Enter to send · Up/Down history · Esc clear · Ctrl+C interrupt
+      <Box paddingX={1}>
+        <Text color={theme.dim} wrap="truncate-end">
+          Enter send · Up/Down history · /commands · !shell · @file · /keys
         </Text>
       </Box>
     </Box>

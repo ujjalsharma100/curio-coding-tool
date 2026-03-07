@@ -287,9 +287,9 @@ export function ToolCallView({
       </Box>
       <Box marginLeft={2} flexDirection="column">
         {summary ? (
-          <Text color={theme.muted}>{summary}</Text>
+          <Text color={theme.muted} wrap="truncate-end">{summary}</Text>
         ) : (
-          <Text color={theme.muted}>
+          <Text color={theme.muted} wrap="truncate-end">
             {(argsPreview ?? "").length > 200
               ? `${(argsPreview ?? "").slice(0, 200)}…`
               : argsPreview ?? ""}
