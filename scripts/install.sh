@@ -82,6 +82,14 @@ do_local_install() {
     echo "Error: Bun is required for local install. Install from https://bun.sh"
     exit 1
   fi
+  SDK_DIR="${REPO_ROOT}/../curio-agent-sdk-typescript"
+  if [ -f "${SDK_DIR}/package.json" ]; then
+    echo "  Building SDK (curio-agent-sdk-typescript)..."
+    cd "${SDK_DIR}"
+    bun install
+    bun run build
+    cd "${REPO_ROOT}"
+  fi
   cd "${REPO_ROOT}"
   echo "  Running: bun install"
   bun install
@@ -123,7 +131,15 @@ do_remote_install() {
   git clone --depth 1 "${CURIO_SDK_REPO}.git" "${BUILD_DIR}/curio-agent-sdk-typescript"
   echo "  Cloning curio-coding-tool..."
   git clone --depth 1 "${CURIO_CODE_REPO}.git" "${BUILD_DIR}/curio-coding-tool"
-  echo "  Building (bun install + bun run build)..."
+  echo "  Building SDK (curio-agent-sdk-typescript)..."
+  cd "${BUILD_DIR}/curio-agent-sdk-typescript"
+  bun install
+  bun run build
+  if [ ! -d "${BUILD_DIR}/curio-agent-sdk-typescript/dist" ]; then
+    echo "Error: SDK build did not produce dist/."
+    exit 1
+  fi
+  echo "  Building Curio Code..."
   cd "${BUILD_DIR}/curio-coding-tool"
   bun install
   bun run build
