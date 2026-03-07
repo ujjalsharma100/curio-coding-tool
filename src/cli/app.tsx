@@ -152,6 +152,9 @@ export function App({
   const [cmdFilter, setCmdFilter] = useState("");
   const [cmdIndex, setCmdIndex] = useState(0);
 
+  // Increment to clear input after send (ensures clear even when sending from command menu)
+  const [inputClearTrigger, setInputClearTrigger] = useState(0);
+
   // Shell
   const [isRunningShell, setIsRunningShell] = useState(false);
 
@@ -343,6 +346,9 @@ export function App({
 
   const sendMessage = useCallback(async (input: string) => {
     if (!input.trim() || isStreaming || isRunningShell) return;
+
+    // Signal input to clear (handles both normal submit and command-menu send)
+    setInputClearTrigger((n) => n + 1);
 
     // Close command menu
     setShowCommandMenu(false);
@@ -640,6 +646,7 @@ export function App({
         onCommandMenuNav={handleCmdNav}
         onCommandMenuSelect={handleCmdSelect}
         onCommandMenuDismiss={handleCmdDismiss}
+        clearTrigger={inputClearTrigger}
       />
 
       {/* ── Command menu (BELOW input) ──────────────────────────── */}

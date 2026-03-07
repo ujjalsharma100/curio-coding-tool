@@ -15,6 +15,8 @@ export interface InputProps {
   readonly onCommandMenuNav?: (delta: number) => void;
   readonly onCommandMenuSelect?: () => void;
   readonly onCommandMenuDismiss?: () => void;
+  /** Increment to clear the input (e.g. when parent sends a message from command menu) */
+  readonly clearTrigger?: number;
 }
 
 export function Input({
@@ -28,10 +30,19 @@ export function Input({
   onCommandMenuNav,
   onCommandMenuSelect,
   onCommandMenuDismiss,
+  clearTrigger,
 }: InputProps): JSX.Element {
   const [value, setValue] = useState("");
   const [history, setHistory] = useState<string[]>([]);
   const [, setHistoryIndex] = useState<number | null>(null);
+
+  // Clear input whenever parent signals (e.g. message sent from command menu or after submit)
+  useEffect(() => {
+    if (clearTrigger !== undefined && clearTrigger > 0) {
+      setValue("");
+      setHistoryIndex(null);
+    }
+  }, [clearTrigger]);
 
   useEffect(() => {
     if (persistedHistory && persistedHistory.length > 0) {
@@ -59,10 +70,11 @@ export function Input({
   const submit = useCallback(() => {
     const trimmed = value.trim();
     if (!trimmed) return;
-    onSubmit(trimmed);
-    setHistory((prev) => [...prev, trimmed]);
-    setHistoryIndex(null);
+    // Clear immediately so the next prompt shows an empty input
     setValue("");
+    setHistoryIndex(null);
+    setHistory((prev) => [...prev, trimmed]);
+    onSubmit(trimmed);
   }, [onSubmit, value]);
 
   useInput(
