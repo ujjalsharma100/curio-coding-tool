@@ -44,9 +44,10 @@ export const notebookEditTool = createTool({
     cell_id: z.string().optional().describe("Cell ID"),
     cell_type: z.enum(["code", "markdown"]).optional(),
     new_source: z.string().describe("New cell content"),
-    edit_mode: z.enum(["replace", "insert", "delete"]).optional().default("replace"),
+    edit_mode: z.enum(["replace", "insert", "delete"]).optional().describe("Edit mode (default: replace)"),
   }),
-  execute: async ({ notebook_path, cell_number, cell_id, cell_type, new_source, edit_mode }) => {
+  execute: async ({ notebook_path, cell_number, cell_id, cell_type, new_source, edit_mode: rawEditMode }) => {
+    const edit_mode = rawEditMode ?? "replace";
     const absolutePath = path.resolve(notebook_path);
     try {
       const raw = await fs.readFile(absolutePath, "utf8");

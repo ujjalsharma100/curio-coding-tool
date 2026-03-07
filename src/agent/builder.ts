@@ -1,4 +1,5 @@
-import { Agent } from "curio-agent-sdk";
+import { Agent, useRunLogger } from "curio-agent-sdk";
+import type { RunLogger } from "curio-agent-sdk";
 import type { CliRuntimeConfig } from "../cli/args.js";
 import { resolveProvider } from "./provider-config.js";
 import { buildSystemPrompt } from "./system-prompt.js";
@@ -28,6 +29,7 @@ import { createSkillRegistry } from "../skills/index.js";
 import { loadMergedMcpConfig, McpBridgeManager } from "../mcp/index.js";
 import { loadConfig, type CurioConfig } from "../config/index.js";
 import { buildHookSystem, type CostTracker } from "../hooks/index.js";
+import { getLogDirPath } from "../logging/index.js";
 
 export interface BuildAgentResult {
   agent: Agent;
@@ -39,6 +41,7 @@ export interface BuildAgentResult {
   permissionMode: PermissionMode;
   loadedConfig: CurioConfig;
   costTracker: CostTracker;
+  runLogger?: RunLogger;
   sessionManager?: CurioSessionManager;
   currentSessionId?: string;
   resumedFromSession?: string;
@@ -83,8 +86,7 @@ export async function buildAgent(
     provider: config.provider ?? curioConfig.provider,
   });
 
-  const toolsForProvider =
-    resolved.providerName === "ollama" ? [] : phaseTwoTools;
+  const toolsForProvider = phaseTwoTools;
 
   // Session management (best-effort — tests may run without fs access to ~/.curio-code)
   let sessionManager: CurioSessionManager | undefined;
@@ -169,13 +171,13 @@ export async function buildAgent(
     ? new AutoAllowHandler()
     : new CliPermissionHandler();
 
-  // Phase 8: Todo system
+  // Phase 8: Todo system (skip for providers that struggle with many tools)
   const todoManager = new TodoManager();
-  const todoTools = resolved.providerName === "ollama" ? [] : createTodoTools(todoManager);
+  const todoTools = createTodoTools(todoManager);
 
-  // Phase 8: Plan mode
+  // Phase 8: Plan mode (skip for providers that struggle with many tools)
   const planStateRef: PlanStateRef = { current: createPlanState() };
-  const planTools = resolved.providerName === "ollama" ? [] : createPlanTools(planStateRef);
+  const planTools = createPlanTools(planStateRef);
 
   // Phase 8: Skills
   const skillRegistry = createSkillRegistry(cwd);
@@ -214,6 +216,19 @@ export async function buildAgent(
     .permissions(policy)
     .humanInput(humanInput);
 
+  // SDK run logger — writes comprehensive debug logs (LLM requests/responses,
+  // tool calls, agent run lifecycle) to a timestamped .log file.
+  let runLogger: RunLogger | undefined;
+  try {
+    const logDir = getLogDirPath();
+    runLogger = useRunLogger(builder, {
+      outputDir: logDir,
+      baseName: "curio-code-run",
+    });
+  } catch {
+    // best-effort; don't block startup if log dir fails
+  }
+
   // Phase 10: Register hooks from hook system
   for (const event of hookSystem.registry.getRegisteredEvents()) {
     for (const handler of hookSystem.registry.listHandlers(event)) {
@@ -225,15 +240,12 @@ export async function buildAgent(
     builder.sessionManager(sessionManager.getSDKManager());
   }
 
-  // Skip MemoryManager for Ollama — its auto-registered tools use Zod schemas
-  // that Ollama's strict JSON Schema parser rejects. Memory file injection into
-  // the system prompt still works; only the agent-callable memory tools are skipped.
-  if (memorySystem && resolved.providerName !== "ollama") {
+  if (memorySystem) {
     builder.memoryManager(memorySystem.memoryManager);
   }
 
   // Phase 8: Subagent configurations
-  if (resolved.providerName !== "ollama") {
+  {
     builder.subagent("explore", {
       systemPrompt: "Fast codebase exploration agent. Use read-only tools to search and understand code.",
       tools: readOnlyTools,
@@ -271,6 +283,7 @@ export async function buildAgent(
     permissionMode: mode,
     loadedConfig: curioConfig,
     costTracker: hookSystem.costTracker,
+    runLogger,
     sessionManager,
     currentSessionId,
     resumedFromSession,

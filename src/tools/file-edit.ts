@@ -76,9 +76,10 @@ export const fileEditTool = createTool({
     file_path: z.string().describe("Absolute path to the file"),
     old_string: z.string().describe("Exact text to find and replace"),
     new_string: z.string().describe("Replacement text"),
-    replace_all: z.boolean().optional().default(false).describe("Replace all occurrences"),
+    replace_all: z.boolean().optional().describe("Replace all occurrences (default: false)"),
   }),
-  execute: async ({ file_path, old_string, new_string, replace_all }) => {
+  execute: async ({ file_path, old_string, new_string, replace_all: replaceAll }) => {
+    const replace_all = replaceAll ?? false;
     const absolutePath = path.resolve(file_path);
     if (!toolSessionState.hasReadFile(absolutePath)) {
       return `File must be read before editing: ${absolutePath}`;

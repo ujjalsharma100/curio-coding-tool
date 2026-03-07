@@ -4,68 +4,26 @@ import { createTool } from "curio-agent-sdk";
 import { z } from "zod";
 import { toolSessionState } from "./session-state.js";
 
-const FileWriteArgsSchema = z
-  .object({
-    file_path: z
-      .string()
-      .optional()
-      .describe("Absolute path to write to"),
-    // Common path aliases models sometimes use
-    path: z
-      .string()
-      .optional()
-      .describe("Alias for file_path; treated the same."),
-    filename: z
-      .string()
-      .optional()
-      .describe("Alias for file_path; treated the same."),
-    file: z
-      .string()
-      .optional()
-      .describe("Alias for file_path; treated the same."),
-    content: z
-      .string()
-      .optional()
-      .describe("Content to write"),
-    // Common aliases for content in tool-calling examples
-    text: z
-      .string()
-      .optional()
-      .describe("Alias for content; treated the same as content."),
-    body: z
-      .string()
-      .optional()
-      .describe("Alias for content; treated the same as content."),
-  })
-  // Allow extra keys from various providers/models without failing validation.
-  .passthrough();
+const FileWriteArgsSchema = z.object({
+  file_path: z.string().describe("Absolute path to write to"),
+  content: z.string().describe("Content to write"),
+});
 
-type FileWriteArgs = z.infer<typeof FileWriteArgsSchema> & Record<string, unknown>;
+type FileWriteArgs = z.infer<typeof FileWriteArgsSchema>;
 
 export const fileWriteTool = createTool<FileWriteArgs>({
   name: "write_file",
   description: "Write UTF-8 content to a file, creating parent directories as needed.",
   parameters: FileWriteArgsSchema,
   execute: async (args) => {
-    const targetPath =
-      (typeof args.file_path === "string" && args.file_path) ??
-      (typeof args.path === "string" && args.path) ??
-      (typeof args.filename === "string" && args.filename) ??
-      (typeof args.file === "string" && args.file) ??
-      "";
-
+    const targetPath = args.file_path;
     if (!targetPath) {
-      return 'write_file: expected "file_path" (or "path", "filename", "file") to be a non-empty string.';
+      return 'write_file: expected "file_path" to be a non-empty string.';
     }
 
-    const body =
-      (typeof args.content === "string" && args.content) ??
-      (typeof args.text === "string" && args.text) ??
-      (typeof args.body === "string" && args.body) ??
-      "";
-
+    const body = args.content;
     if (!body) {
-      return 'write_file: expected "content" (or "text", "body") to be a non-empty string.';
+      return 'write_file: expected "content" to be a non-empty string.';
     }
 
     const absolutePath = path.resolve(targetPath);

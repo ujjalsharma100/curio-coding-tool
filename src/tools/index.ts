@@ -27,6 +27,17 @@ export const phaseTwoTools = [
   screenshotTool,
 ];
 
+/** Core tools for providers with limited tool-calling ability (Groq, etc.).
+ *  Fewer tools with simpler schemas for reliable tool calling. */
+export const coreTools = [
+  fileReadTool,
+  fileWriteTool,
+  fileEditTool,
+  globTool,
+  grepTool,
+  bashTool,
+];
+
 export const readOnlyTools = [
   fileReadTool,
   globTool,

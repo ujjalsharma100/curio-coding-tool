@@ -97,7 +97,7 @@ export const grepTool = createTool({
     output_mode: z
       .enum(["content", "files_with_matches", "count"])
       .optional()
-      .default("files_with_matches"),
+      .describe("Output mode (default: files_with_matches)"),
     "-i": z.boolean().optional().describe("Case insensitive"),
     "-A": z.number().optional().describe("Lines after match"),
     "-B": z.number().optional().describe("Lines before match"),

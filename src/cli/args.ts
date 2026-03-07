@@ -221,6 +221,7 @@ export async function runCli(argv: string[] = process.argv): Promise<void> {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       loadedConfig,
       costTracker,
+      runLogger,
       sessionManager,
       currentSessionId,
       resumedFromSession,
@@ -276,6 +277,12 @@ export async function runCli(argv: string[] = process.argv): Promise<void> {
         process.exit(1);
       }
     } finally {
+      if (runLogger) {
+        const logPath = runLogger.getLogPath();
+        if (logPath && runtimeConfig.verbose) {
+          process.stderr.write(`Run log: ${logPath}\n`);
+        }
+      }
       if (mcpBridgeManager) {
         await mcpBridgeManager.shutdown();
       }
